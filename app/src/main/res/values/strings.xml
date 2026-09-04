@@ -1,0 +1,71 @@
+<resources>
+    <string name="app_name">LinkRouter</string>
+    <string name="dispatcher_label">LinkRouter</string>
+
+    <string name="set_default_browser">Set LinkRouter as your default browser</string>
+    <string name="empty_rules_title">No rules yet</string>
+    <string name="empty_rules_body">Add a rule to route matching links to a specific browser, or set LinkRouter as your default browser.</string>
+    <string name="add_rule">Add rule</string>
+    <string name="edit_rule">Edit rule</string>
+    <string name="delete_rule">Delete</string>
+    <string name="duplicate_rule">Duplicate</string>
+    <string name="pattern">Pattern</string>
+    <string name="target">Target browser</string>
+    <string name="open_private">Open in private window</string>
+    <string name="no_true_private">No true private support — will warn and open normally</string>
+    <string name="browser_uninstalled">Browser uninstalled — reinstall or retarget</string>
+    <string name="test_rule">Test</string>
+    <string name="settings">Settings</string>
+    <string name="fallback_mode">Fallback for unmatched links</string>
+    <string name="fallback_chooser">System chooser</string>
+    <string name="fallback_os_default">OS default browser</string>
+    <string name="fallback_block">Block (do nothing)</string>
+    <string name="fallback_ask_remember">Ask, then remember</string>
+    <string name="fallback_specific">Specific browser</string>
+    <string name="fallback_specific_picker">Choose fallback browser</string>
+    <string name="fallback_specific_uninstalled">%1$s is not installed — fell back to the system chooser</string>
+    <string name="no_browsers_found">No browsers found in this profile</string>
+    <string name="refresh_browsers">Refresh browser list</string>
+    <string name="import_rules">Import rules (JSON)</string>
+    <string name="export_rules">Export rules (JSON)</string>
+    <string name="open_default_prompt">Open default-browser prompt</string>
+    <string name="blocked_toast">Link blocked by LinkRouter (fallback = BLOCK)</string>
+    <string name="private_not_supported">Private browsing isn\'t supported by %1$s — opened normally</string>
+    <string name="routing_toast">You are routing matching links to %1$s</string>
+    <string name="work_profile_note">Browsers are discovered per active profile only.</string>
+    <string name="private_warn_title">Warn when private mode isn\'t truly supported</string>
+    <string name="rescan_done">Browser list refreshed</string>
+    <string name="import_ok">Imported %1$d rules</string>
+    <string name="import_failed">Import failed — invalid JSON</string>
+    <string name="export_ok">Exported %1$d items</string>
+    <string name="export_failed">Export failed</string>
+    <string name="private_warn_reset">Reset private warnings</string>
+
+    <!-- Redirect formats -->
+    <string name="redirect_formats_title">Redirect formats</string>
+    <string name="redirect_formats_body">Formats unwrap redirect links to their real destination for rule matching. The original link is still opened.</string>
+    <string name="add_redirect_format">Add format</string>
+    <string name="edit_redirect_format">Edit format</string>
+    <string name="reset_builtin">Reset to default</string>
+    <string name="builtin_badge">built-in</string>
+    <string name="builtin_readonly">Built-in format — use “Reset to default” in the menu.</string>
+    <string name="name">Name</string>
+    <string name="pattern_wrapper">Pattern (wrapper host/path)</string>
+    <string name="match_type">Match type</string>
+    <string name="match_exact_host">Exact host</string>
+    <string name="match_subdomain">Subdomain</string>
+    <string name="match_path_prefix">Path prefix</string>
+    <string name="match_regex">Regex</string>
+    <string name="extract_type">Extract</string>
+    <string name="extract_query_param">Query param</string>
+    <string name="extract_path_regex">Path regex</string>
+    <string name="extract_full_url_regex">Full-URL regex</string>
+    <string name="extract_base64_param">Base64 param</string>
+    <string name="extraction_target">Extraction target</string>
+    <string name="target_param_name">param name (e.g. q)</string>
+    <string name="target_regex">regex</string>
+    <string name="live_preview">Live preview</string>
+    <string name="no_match">no match</string>
+    <string name="import_ok_formats">Imported %1$d formats</string>
+    <string name="import_ok_both">Imported %1$d rules and %2$d formats</string>
+</resources>

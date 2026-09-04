@@ -1,0 +1,15 @@
+<resources>
+    <style name="Theme.LinkRouter" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/lr_background</item>
+        <item name="android:statusBarColor">@color/lr_background</item>
+        <item name="android:navigationBarColor">@color/lr_background</item>
+    </style>
+
+    <style name="Theme.LinkRouter.Transparent">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
+</resources>
