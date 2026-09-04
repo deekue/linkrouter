@@ -58,6 +58,7 @@ fun SettingsScreen(
     onOpenDefaultBrowserPrompt: () -> Unit,
 ) {
     val context = LocalContext.current
+    val browsers by vm.browsers.collectAsStateWithLifecycle()
     val fallbackMode by vm.fallbackMode.collectAsStateWithLifecycle()
     val fallbackBrowser by vm.fallbackBrowser.collectAsStateWithLifecycle()
     val warnPrivate by vm.warnPrivate.collectAsStateWithLifecycle()
@@ -163,7 +164,7 @@ fun SettingsScreen(
 
             if (fallbackMode == FallbackMode.FALLBACK_BROWSER) {
                 FallbackBrowserPicker(
-                    browsers = vm.browsers.value,
+                    browsers = browsers,
                     selected = fallbackBrowser,
                     onPick = { vm.setFallbackBrowser(it) },
                 )

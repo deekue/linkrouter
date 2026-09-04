@@ -72,6 +72,7 @@ fun RulesScreen(
     var showEditor by rememberSaveable { mutableStateOf(false) }
     var editingRule by remember { mutableStateOf<Rule?>(null) }
     val rows = vm.rows
+    val browsers by vm.browsers.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     Scaffold(
@@ -140,7 +141,7 @@ fun RulesScreen(
     if (showEditor) {
         RuleEditor(
             existing = editingRule,
-            browsers = vm.browsers.value,
+            browsers = browsers,
             onSave = { pattern, type, pkg, activity, mode ->
                 val editing = editingRule
                 if (editing == null) {
