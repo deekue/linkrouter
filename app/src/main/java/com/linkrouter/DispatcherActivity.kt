@@ -8,6 +8,7 @@ import android.widget.Toast
 import com.linkrouter.browsers.BrowserInfo
 import com.linkrouter.browsers.BrowserRegistry
 import com.linkrouter.browsers.StrategyTable
+import com.linkrouter.browsers.WebViewTarget
 import com.linkrouter.fallback.FallbackHandler
 import com.linkrouter.rules.RedirectResolver
 import com.linkrouter.rules.Rule
@@ -86,6 +87,23 @@ class DispatcherActivity : Activity() {
             // 3. RESOLVE TARGET + LAUNCH
             if (rule == null) {
                 routeFallback(launchUri)
+            } else if (WebViewTarget.isWebView(rule.targetPackage)) {
+                // In-app WebView target — never consults the browser registry.
+                // REAL private: the page stays in our process, no cross-app leak.
+                if (rule.openMode == com.linkrouter.rules.OpenMode.PRIVATE) {
+                    launchSafely(launchUri) {
+                        com.linkrouter.browsers.WebViewLauncher.launch(this@DispatcherActivity, WebViewTarget.browserInfo, launchUri)
+                    }
+                } else {
+                    launchSafely(launchUri) {
+                        startActivity(
+                            android.content.Intent(this@DispatcherActivity, WebViewActivity::class.java)
+                                .putExtra(WebViewActivity.EXTRA_URL, launchUri.toString())
+                                .putExtra(WebViewActivity.EXTRA_PRIVATE, false)
+                                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+                        )
+                    }
+                }
             } else {
                 val target = registry.resolveTarget(rule.targetPackage)
                 when {
@@ -95,15 +113,24 @@ class DispatcherActivity : Activity() {
                     }
                     rule.openMode == com.linkrouter.rules.OpenMode.PRIVATE -> {
                         val launcher = StrategyTable.launcherFor(target)
-                        if (launcher.isRealPrivate()) {
-                            launchSafely(launchUri) { launcher.launch(this@DispatcherActivity, target, launchUri) }
-                        } else {
-                            // D6: one-time warn, then open normally.
-                            if (settings.shouldWarnPrivate(target.packageName)) {
-                                toast(getString(R.string.private_not_supported, target.label))
-                            }
-                            launchSafely(launchUri) { dispatchNormal(launchUri, target) }
+                        // D6: never silently pretend to be private. Warn once
+                        // unless the strategy is verified to open a real
+                        // private window.
+                        when (launcher.capability()) {
+                            com.linkrouter.browsers.PrivateCapability.REAL -> { /* verified; no warn */ }
+                            com.linkrouter.browsers.PrivateCapability.ATTEMPT ->
+                                if (settings.shouldWarnPrivate(target.packageName))
+                                    toast(getString(R.string.private_attempted, target.label))
+                            com.linkrouter.browsers.PrivateCapability.NONE ->
+                                if (settings.shouldWarnPrivate(target.packageName))
+                                    toast(getString(R.string.private_not_supported, target.label))
                         }
+                        // Always launch via the strategy: ATTEMPT browsers get the
+                        // best-effort private extra (harmless if the browser
+                        // ignores it → URL opens normally); NONE opens normally.
+                        // Both keep the URL deliverable (package-pinned, no
+                        // component), so "opens but not the URL" cannot happen.
+                        launchSafely(launchUri) { launcher.launch(this@DispatcherActivity, target, launchUri) }
                     }
                     else -> launchSafely(launchUri) { dispatchNormal(launchUri, target) }
                 }

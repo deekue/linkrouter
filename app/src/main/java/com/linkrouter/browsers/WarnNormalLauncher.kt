@@ -10,10 +10,17 @@ import android.net.Uri
  */
 object WarnNormalLauncher : PrivateLauncher {
     override fun launch(context: Context, browser: BrowserInfo, uri: Uri) {
-        val intent = Intent(Intent.ACTION_VIEW, uri).setPackage(browser.packageName)
-        browser.activity?.let { intent.component = android.content.ComponentName.unflattenFromString(it) }
-        context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        // Pin to the package, NOT to a component: `browser.activity` is the
+        // MAIN/LAUNCHER (icon) activity, which does not interpret ACTION_VIEW
+        // data. Pinning it would open the browser's home screen and drop the URL.
+        // Let the resolver pick the real http/https handler (as targetIntent does).
+        val intent = Intent(Intent.ACTION_VIEW, uri)
+            .setPackage(browser.packageName)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(intent)
     }
 
     override fun isRealPrivate(): Boolean = false
+
+    override fun capability(): PrivateCapability = PrivateCapability.NONE
 }

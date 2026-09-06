@@ -27,6 +27,8 @@ import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PrivateConnectivity
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Web
+import com.linkrouter.browsers.WebViewTarget
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -72,7 +74,7 @@ fun RulesScreen(
     var showEditor by rememberSaveable { mutableStateOf(false) }
     var editingRule by remember { mutableStateOf<Rule?>(null) }
     val rows = vm.rows
-    val browsers by vm.browsers.collectAsStateWithLifecycle()
+    val targets by vm.targets.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     Scaffold(
@@ -141,7 +143,7 @@ fun RulesScreen(
     if (showEditor) {
         RuleEditor(
             existing = editingRule,
-            browsers = browsers,
+            browsers = targets,
             onSave = { pattern, type, pkg, activity, mode ->
                 val editing = editingRule
                 if (editing == null) {
@@ -236,11 +238,21 @@ private fun RuleRowItem(
 
         // Browser icon
         Box(modifier = Modifier.size(40.dp), contentAlignment = Alignment.Center) {
-            val painter = row.browser?.let { browserIcon(it) }
-            if (painter != null) {
-                Icon(painter, contentDescription = row.browser?.label, modifier = Modifier.size(30.dp))
-            } else {
-                Text("?", style = MaterialTheme.typography.titleMedium)
+            val isWebView = WebViewTarget.isWebView(rule.targetPackage)
+            val painter = if (isWebView) null else row.browser?.let { browserIcon(it) }
+            when {
+                isWebView -> Icon(
+                    Icons.Filled.Web,
+                    contentDescription = WebViewTarget.LABEL,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(30.dp),
+                )
+                painter != null -> Icon(
+                    painter,
+                    contentDescription = row.browser?.label,
+                    modifier = Modifier.size(30.dp),
+                )
+                else -> Text("?", style = MaterialTheme.typography.titleMedium)
             }
         }
         Spacer(Modifier.width(12.dp))

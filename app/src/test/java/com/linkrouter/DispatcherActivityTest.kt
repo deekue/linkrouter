@@ -6,6 +6,7 @@ import android.os.Looper
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.linkrouter.browsers.BrowserInfo
 import com.linkrouter.browsers.BrowserRegistry
+import com.linkrouter.browsers.WebViewTarget
 import com.linkrouter.rules.OpenMode
 import com.linkrouter.rules.Rule
 import com.linkrouter.rules.RuleRepository
@@ -13,6 +14,7 @@ import com.linkrouter.settings.FallbackMode
 import com.linkrouter.settings.SettingsStore
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -318,6 +320,46 @@ class DispatcherActivityTest {
         val toast = lastToastText()
         assertNotNull("a one-time warning toast is expected", toast)
         assertTrue(toast!!.contains("Test Browser"))
+    }
+
+    @Test
+    fun `webview target opens WebViewActivity without consulting the registry`() {
+        // Registry returns null (WebView is not an installed app), but the
+        // dispatcher must intercept before the registry lookup.
+        AppContainer.ruleRepository = FakeRepository(listOf(
+            rule(com.linkrouter.browsers.WebViewTarget.PACKAGE, OpenMode.PRIVATE)
+        ))
+        AppContainer.browserRegistry = FakeRegistry(context(), null)
+
+        val activity = build("https://example.com/page")
+        settle(activity)
+
+        val started = startedActivities(activity).single()
+        assertEquals(WebViewActivity::class.java.name, started.component?.className)
+        assertEquals("https://example.com/page", started.getStringExtra(WebViewActivity.EXTRA_URL))
+        assertTrue(
+            "WebView private mode must set EXTRA_PRIVATE",
+            started.getBooleanExtra(WebViewActivity.EXTRA_PRIVATE, false),
+        )
+    }
+
+    @Test
+    fun `webview target normal mode opens WebViewActivity without private flag`() {
+        AppContainer.ruleRepository = FakeRepository(listOf(
+            rule(com.linkrouter.browsers.WebViewTarget.PACKAGE, OpenMode.NORMAL)
+        ))
+        AppContainer.browserRegistry = FakeRegistry(context(), null)
+
+        val activity = build("https://example.com/page")
+        settle(activity)
+
+        val started = startedActivities(activity).single()
+        assertEquals(WebViewActivity::class.java.name, started.component?.className)
+        assertEquals("https://example.com/page", started.getStringExtra(WebViewActivity.EXTRA_URL))
+        assertFalse(
+            "WebView normal mode must NOT set EXTRA_PRIVATE",
+            started.getBooleanExtra(WebViewActivity.EXTRA_PRIVATE, false),
+        )
     }
 
     // --- fallback modes ---

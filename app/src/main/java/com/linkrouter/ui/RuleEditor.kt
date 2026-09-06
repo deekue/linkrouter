@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PrivateConnectivity
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Web
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
@@ -50,6 +51,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.linkrouter.browsers.BrowserInfo
 import com.linkrouter.browsers.StrategyTable
+import com.linkrouter.browsers.WebViewTarget
 import com.linkrouter.rules.MatchType
 import com.linkrouter.rules.OpenMode
 import com.linkrouter.rules.Rule
@@ -167,24 +169,33 @@ fun RuleEditor(
                         onCheckedChange = { openMode = if (it) OpenMode.PRIVATE.name else OpenMode.NORMAL.name },
                     )
                 }
-                val capable = StrategyTable.isPrivateCapable(targetPkg)
+                val capable = StrategyTable.capabilityFor(targetPkg)
                 if (openMode == OpenMode.PRIVATE.name) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 6.dp)
                             .background(
-                                if (capable) MaterialTheme.colorScheme.primaryContainer
-                                else MaterialTheme.colorScheme.errorContainer,
+                                when (capable) {
+                                    com.linkrouter.browsers.PrivateCapability.REAL ->
+                                        MaterialTheme.colorScheme.primaryContainer
+                                    com.linkrouter.browsers.PrivateCapability.ATTEMPT ->
+                                        MaterialTheme.colorScheme.tertiaryContainer
+                                    com.linkrouter.browsers.PrivateCapability.NONE ->
+                                        MaterialTheme.colorScheme.errorContainer
+                                },
                                 RoundedCornerShape(8.dp),
                             )
                             .padding(10.dp),
                     ) {
                         Text(
-                            text = if (capable) {
-                                "True private supported"
-                            } else {
-                                "No true private support — will warn and open normally"
+                            text = when (capable) {
+                                com.linkrouter.browsers.PrivateCapability.REAL ->
+                                    "Verified: opens a private window"
+                                com.linkrouter.browsers.PrivateCapability.ATTEMPT ->
+                                    "Best-effort: tries a private window (not guaranteed — verify on your browser)"
+                                com.linkrouter.browsers.PrivateCapability.NONE ->
+                                    "No private support — will warn and open normally"
                             },
                             style = MaterialTheme.typography.bodySmall,
                         )
@@ -343,9 +354,17 @@ private fun BrowserGrid(
                             .padding(vertical = 10.dp, horizontal = 6.dp),
                         contentAlignment = Alignment.Center,
                     ) {
-                        val painter = browserIcon(b)
+                        val isWebView = WebViewTarget.isWebView(b.packageName)
+                        val painter = if (isWebView) null else browserIcon(b)
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            if (painter != null) {
+                            if (isWebView) {
+                                Icon(
+                                    Icons.Filled.Web,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(28.dp),
+                                )
+                            } else if (painter != null) {
                                 Icon(painter, contentDescription = null, modifier = Modifier.size(28.dp))
                             } else {
                                 Spacer(Modifier.size(28.dp))
@@ -376,7 +395,13 @@ private fun runTest(
     val rule = Rule(id = 0, pattern = pattern, matchType = type, targetPackage = browser?.packageName ?: "")
     val score = com.linkrouter.rules.RuleEngine.scoreRule(rule, parsed)
     if (score == null) return "✗ No match for this URL"
-    val mode = if (browser != null && StrategyTable.launcherFor(browser).isRealPrivate()) "PRIVATE (true)" else "NORMAL"
+    val mode = if (browser != null && StrategyTable.isRealPrivate(browser.packageName)) {
+        "PRIVATE (verified)"
+    } else if (browser != null && StrategyTable.capabilityFor(browser.packageName) == com.linkrouter.browsers.PrivateCapability.ATTEMPT) {
+        "private (best-effort, not guaranteed)"
+    } else {
+        "NORMAL"
+    }
     val target = browser?.label ?: "(no browser selected)"
     return "→ would launch $target in $mode window (score $score)"
 }

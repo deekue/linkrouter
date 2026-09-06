@@ -13,6 +13,8 @@ import com.linkrouter.rules.RedirectFormatValidator
 import com.linkrouter.rules.Rule
 import com.linkrouter.settings.FallbackMode
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 data class RuleRow(
@@ -35,6 +37,20 @@ class RulesViewModel(app: Application) : AndroidViewModel(app) {
     private val fmtRepo = container.redirectFormatRepository
 
     val browsers by lazy { registry.browsers }
+
+    /**
+     * All selectable rule targets: the built-in in-app WebView first, followed
+     * by the installed browsers. The WebView is a synthetic entry — it is not
+     * an installed app, so it is not part of [browsers].
+     */
+    val targets: kotlinx.coroutines.flow.StateFlow<List<BrowserInfo>> by lazy {
+        registry.browsers
+            .map { installed: List<BrowserInfo> ->
+                listOf(com.linkrouter.browsers.WebViewTarget.browserInfo) + installed
+            }
+            .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, emptyList())
+    }
+
     val fallbackMode by lazy { settings.fallbackMode }
     val fallbackBrowser by lazy { settings.fallbackBrowser }
     val rememberedPackage by lazy { settings.rememberedPackage }
@@ -53,12 +69,15 @@ class RulesViewModel(app: Application) : AndroidViewModel(app) {
             // because the rules snapshot is read before browsers is populated.
             container.ruleRepository.observeOrdered()
                 .combine(registry.browsers) { rules, browsers ->
-                    val installed = browsers.associateBy { it.packageName }
+                    // Include the synthetic WebView entry so its rules don't
+                    // show as "uninstalled" in the rule list.
+                    val installed = (listOf(com.linkrouter.browsers.WebViewTarget.browserInfo) + browsers)
+                        .associateBy { it.packageName }
                     rules.map { r ->
                         RuleRow(
                             rule = r,
                             browser = installed[r.targetPackage],
-                            isPrivateCapable = r.targetPackage == com.linkrouter.browsers.StrategyTable.FIREFOX,
+                            isPrivateCapable = com.linkrouter.browsers.StrategyTable.isPrivateCapable(r.targetPackage),
                         )
                     }
                 }

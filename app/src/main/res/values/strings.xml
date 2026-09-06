@@ -33,6 +33,7 @@
     <string name="open_with">Open with</string>
     <string name="open_failed">Couldn\'t open the link in %1$s</string>
     <string name="private_not_supported">Private browsing isn\'t supported by %1$s — opened normally</string>
+    <string name="private_attempted">Asked %1$s to open a private window — it may have opened normally instead</string>
     <string name="routing_toast">You are routing matching links to %1$s</string>
     <string name="work_profile_note">Browsers are discovered per active profile only.</string>
     <string name="private_warn_title">Warn when private mode isn\'t truly supported</string>

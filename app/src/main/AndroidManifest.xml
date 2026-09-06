@@ -16,6 +16,15 @@
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="https" />
         </intent>
+        <!--
+          Explicit packages we may attach best-effort private extras to
+          (DESIGN.md 7). Harmless if not installed; improves package-visibility
+          on API 30+ so the vendor extras resolve.
+        -->
+        <package android:name="com.android.chrome" />
+        <package android:name="org.mozilla.firefox" />
+        <package android:name="org.mozilla.firefox_beta" />
+        <package android:name="org.mozilla.fenix" />
     </queries>
 
     <application
@@ -68,6 +77,17 @@
             android:name=".BrowserChooserActivity"
             android:exported="false"
             android:excludeFromRecents="true"
+            android:theme="@style/Theme.LinkRouter" />
+
+        <!--
+          In-app WebView target (DESIGN.md 7). Internal only (not exported):
+          launched exclusively by LinkRouter via an explicit component intent.
+          No ACTION_VIEW filter — never appears as a browser in the system chooser.
+        -->
+        <activity
+            android:name=".WebViewActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|keyboardHidden"
             android:theme="@style/Theme.LinkRouter" />
     </application>
 </manifest>
