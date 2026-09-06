@@ -41,8 +41,8 @@ open class RedirectFormatRepository(private val db: LinkRouterDatabase) {
     suspend fun update(format: RedirectFormat) {
         val current = dao.all().firstOrNull { it.id == format.id } ?: return
         if (current.isBuiltIn) {
-            // Only the enabled flag is user-editable on a built-in.
-            dao.update(RedirectFormatEntity.fromRedirectFormat(current.toRedirectFormat().copy(enabled = format.enabled)))
+            // Only the enabled flag and openRealDestination are user-editable on a built-in.
+            dao.update(RedirectFormatEntity.fromRedirectFormat(current.toRedirectFormat().copy(enabled = format.enabled, openRealDestination = format.openRealDestination)))
             return
         }
         dao.update(RedirectFormatEntity.fromRedirectFormat(format))

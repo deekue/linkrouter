@@ -79,29 +79,33 @@ class DispatcherActivity : Activity() {
             val matchParsed = RuleEngine.normalize(matchUrl) ?: parsed
             val rule: Rule? = RuleEngine.resolve(rules, matchParsed)
 
+            // If the winning format has openRealDestination, launch the extracted
+            // real destination instead of the original wrapper link.
+            val launchUri = Uri.parse(RedirectResolver.launchDestination(original.toString(), formats))
+
             // 3. RESOLVE TARGET + LAUNCH
             if (rule == null) {
-                routeFallback(original)
+                routeFallback(launchUri)
             } else {
                 val target = registry.resolveTarget(rule.targetPackage)
                 when {
                     target == null -> {
                         // Uninstalled target browser (DESIGN.md 8) → fallback.
-                        routeFallback(original)
+                        routeFallback(launchUri)
                     }
                     rule.openMode == com.linkrouter.rules.OpenMode.PRIVATE -> {
                         val launcher = StrategyTable.launcherFor(target)
                         if (launcher.isRealPrivate()) {
-                            launchSafely(original) { launcher.launch(this@DispatcherActivity, target, original) }
+                            launchSafely(launchUri) { launcher.launch(this@DispatcherActivity, target, launchUri) }
                         } else {
                             // D6: one-time warn, then open normally.
                             if (settings.shouldWarnPrivate(target.packageName)) {
                                 toast(getString(R.string.private_not_supported, target.label))
                             }
-                            launchSafely(original) { dispatchNormal(original, target) }
+                            launchSafely(launchUri) { dispatchNormal(launchUri, target) }
                         }
                     }
-                    else -> launchSafely(original) { dispatchNormal(original, target) }
+                    else -> launchSafely(launchUri) { dispatchNormal(launchUri, target) }
                 }
             }
             finish()

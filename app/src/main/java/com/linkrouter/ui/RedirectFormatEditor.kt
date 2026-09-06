@@ -24,6 +24,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -46,7 +47,7 @@ import com.linkrouter.rules.RedirectFormatValidator
 @Composable
 fun RedirectFormatEditor(
     existing: RedirectFormat?,
-    onSave: (name: String, pattern: String, matchType: MatchType, extractType: ExtractType, extractTarget: String) -> Unit,
+    onSave: (name: String, pattern: String, matchType: MatchType, extractType: ExtractType, extractTarget: String, openRealDestination: Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -59,6 +60,7 @@ fun RedirectFormatEditor(
         mutableStateOf(existing?.extractType?.name ?: ExtractType.QUERY_PARAM.name)
     }
     var extractTarget by rememberSaveable { mutableStateOf(existing?.extractTarget ?: "") }
+    var openRealDestination by rememberSaveable { mutableStateOf(existing?.openRealDestination ?: false) }
 
     val isBuiltin = existing?.isBuiltIn == true
     val mt = MatchType.valueOf(matchType)
@@ -75,6 +77,7 @@ fun RedirectFormatEditor(
             enabled = true,
             priority = 0,
             isBuiltIn = isBuiltin,
+            openRealDestination = openRealDestination,
         )
     )
 
@@ -171,6 +174,28 @@ fun RedirectFormatEditor(
                     singleLine = true,
                 )
 
+                Spacer(Modifier.height(10.dp))
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = context.getString(AppR.string.open_real_destination),
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                        Text(
+                            text = context.getString(AppR.string.open_real_destination_hint),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(checked = openRealDestination, onCheckedChange = { openRealDestination = it })
+                }
+
                 if (validation is RedirectFormatValidator.Result.Invalid) {
                     Text(
                         text = validation.reason,
@@ -235,7 +260,7 @@ fun RedirectFormatEditor(
         },
         confirmButton = {
             Button(
-                enabled = validation is RedirectFormatValidator.Result.Valid && !isBuiltin,
+                enabled = validation is RedirectFormatValidator.Result.Valid,
                 onClick = {
                     val valid = validation as? RedirectFormatValidator.Result.Valid
                     val normalized = valid?.normalized
@@ -245,6 +270,7 @@ fun RedirectFormatEditor(
                         mt,
                         et,
                         normalized?.extractTarget ?: extractTarget.trim(),
+                        openRealDestination,
                     )
                 },
             ) { Text("Save") }

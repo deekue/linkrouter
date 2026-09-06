@@ -208,6 +208,37 @@ class DispatcherActivityTest {
     }
 
     @Test
+    fun `google wrapper with openRealDestination launches the real destination`() {
+        // rule targets the DESTINATION host, not the wrapper host:
+        AppContainer.ruleRepository = FakeRepository(listOf(rule("org.example.browser"))) // pattern example.com
+        AppContainer.redirectFormatRepository = FakeFormatRepository(listOf(
+            com.linkrouter.rules.RedirectFormat(
+                id = com.linkrouter.rules.RedirectFormat.BUILT_IN_ID,
+                name = "Google",
+                pattern = "google.com/url",
+                matchType = com.linkrouter.rules.MatchType.PATH_PREFIX,
+                extractType = com.linkrouter.rules.ExtractType.QUERY_PARAM,
+                extractTarget = "q",
+                enabled = true,
+                priority = 1000,
+                isBuiltIn = true,
+                openRealDestination = true,
+            )
+        ))
+        AppContainer.browserRegistry = FakeRegistry(context(), browser("org.example.browser"))
+
+        val wrapper = "https://www.google.com/url?q=https%3A%2F%2Fexample.com%2Fpage"
+        val activity = build(wrapper)
+        settle(activity)
+
+        val started = startedActivities(activity).single()
+        assertEquals("org.example.browser", started.`package`)
+        // The REAL destination must be launched (not the original wrapper).
+        assertEquals(Uri.parse("https://example.com/page"), started.data)
+        assertTrue(started.getBooleanExtra(LinkRouter.EXTRA_HANDLED, false))
+    }
+
+    @Test
     fun `unmatched url falls back to chooser`() {
         val activity = build("https://other.com/page")
         settle(activity)

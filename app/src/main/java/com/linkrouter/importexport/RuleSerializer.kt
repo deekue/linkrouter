@@ -49,6 +49,7 @@ object RuleSerializer {
         val enabled: Boolean = true,
         val priority: Int = 0,
         val isBuiltIn: Boolean = false,
+        val openRealDestination: Boolean = false,
     )
 
     fun toJson(rules: List<Rule>): String = toJson(rules, emptyList())
@@ -76,6 +77,7 @@ object RuleSerializer {
                     enabled = it.enabled,
                     priority = it.priority,
                     isBuiltIn = it.isBuiltIn,
+                    openRealDestination = it.openRealDestination,
                 )
             },
         )
@@ -112,6 +114,7 @@ object RuleSerializer {
                 enabled = dto.enabled,
                 priority = dto.priority,
                 isBuiltIn = dto.isBuiltIn,
+                openRealDestination = dto.openRealDestination,
             )
         }
     }

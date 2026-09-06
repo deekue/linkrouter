@@ -48,7 +48,7 @@
     <string name="edit_redirect_format">Edit format</string>
     <string name="reset_builtin">Reset to default</string>
     <string name="builtin_badge">built-in</string>
-    <string name="builtin_readonly">Built-in format — use “Reset to default” in the menu.</string>
+    <string name="builtin_readonly">Built-in format — “Open the real destination” is editable; the rest is fixed. Use “Reset to default” to restore.</string>
     <string name="name">Name</string>
     <string name="pattern_wrapper">Pattern (wrapper host/path)</string>
     <string name="match_type">Match type</string>
@@ -62,6 +62,8 @@
     <string name="extract_full_url_regex">Full-URL regex</string>
     <string name="extract_base64_param">Base64 param</string>
     <string name="extraction_target">Extraction target</string>
+    <string name="open_real_destination">Open the real destination</string>
+    <string name="open_real_destination_hint">When on, LinkRouter opens the unwrapped destination instead of the wrapper link.</string>
     <string name="target_param_name">param name (e.g. q)</string>
     <string name="target_regex">regex</string>
     <string name="live_preview">Live preview</string>

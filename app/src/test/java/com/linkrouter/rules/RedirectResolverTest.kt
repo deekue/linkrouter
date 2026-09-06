@@ -185,4 +185,50 @@ class RedirectResolverTest {
         val result = RedirectResolver.resolve("https://r.link/foo", listOf(fmt))
         assertNull(result)
     }
+
+    // --- launchDestination (what actually gets launched) ---
+
+    private val googleWrapper = "https://www.google.com/url?q=https%3A%2F%2Fexample.com%2Fpage"
+
+    @Test
+    fun launchDestination_flag_on_returns_extracted_destination() {
+        val fmt = googleFormat().copy(openRealDestination = true)
+        assertEquals("https://example.com/page", RedirectResolver.launchDestination(googleWrapper, listOf(fmt)))
+    }
+
+    @Test
+    fun launchDestination_flag_off_returns_original_wrapper() {
+        val fmt = googleFormat().copy(openRealDestination = false)
+        assertEquals(googleWrapper, RedirectResolver.launchDestination(googleWrapper, listOf(fmt)))
+    }
+
+    @Test
+    fun launchDestination_no_match_returns_original() {
+        assertEquals(
+            "https://other.com/foo?q=x",
+            RedirectResolver.launchDestination("https://other.com/foo?q=x", listOf(googleFormat())),
+        )
+    }
+
+    @Test
+    fun launchDestination_winners_flag_decides() {
+        val url = "https://r.link?a=https://example.com/a&b=https://example.com/b"
+        fun fmt(id: Long, param: String, flag: Boolean) = RedirectFormat(
+            id = id,
+            name = param,
+            pattern = "r.link",
+            matchType = MatchType.EXACT_HOST,
+            extractType = ExtractType.QUERY_PARAM,
+            extractTarget = param,
+            enabled = true,
+            openRealDestination = flag,
+        )
+        // First (winning) format has the flag off → wrapper, even if the lower one is on.
+        assertEquals(url, RedirectResolver.launchDestination(url, listOf(fmt(1, "a", false), fmt(2, "b", true))))
+        // First (winning) format has the flag on → extracted destination.
+        assertEquals(
+            "https://example.com/a",
+            RedirectResolver.launchDestination(url, listOf(fmt(1, "a", true), fmt(2, "b", false))),
+        )
+    }
 }

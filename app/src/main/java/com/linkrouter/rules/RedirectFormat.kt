@@ -16,6 +16,12 @@ enum class ExtractType { QUERY_PARAM, PATH_REGEX, FULL_URL_REGEX, BASE64_PARAM }
  * end-to-end: a [pattern] identifies the WRAPPER (host[/path]) using the same
  * [MatchType] semantics as rules, and [extractType]/[extractTarget] describe how
  * to recover the real destination from a matching wrapper.
+ *
+ * [openRealDestination] (default false) controls what the dispatcher LAUNCHES:
+ * when true and the extraction yields a valid http(s) destination, the real
+ * destination is opened instead of the original wrapper link. When false (or
+ * extraction fails) the wrapper is opened, unchanged. User-editable on all
+ * formats, including built-ins (like [enabled]).
  */
 data class RedirectFormat(
     val id: Long,
@@ -27,6 +33,7 @@ data class RedirectFormat(
     val enabled: Boolean = true,
     val priority: Int = 0,
     val isBuiltIn: Boolean = false,
+    val openRealDestination: Boolean = false,
 ) {
     companion object {
         /**

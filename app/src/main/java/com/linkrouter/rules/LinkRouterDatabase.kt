@@ -8,7 +8,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [RuleEntity::class, RedirectFormatEntity::class],
-    version = 3,
+    version = 4,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -40,6 +40,19 @@ abstract class LinkRouterDatabase : RoomDatabase() {
                 db.execSQL(
                     "CREATE INDEX IF NOT EXISTS index_redirect_formats_enabled_priority " +
                         "ON redirect_formats (enabled, priority)"
+                )
+            }
+        }
+
+        /**
+         * v3 -> v4: add the `openRealDestination` flag to `redirect_formats`.
+         * Column name must match the Kotlin property name Room expects.
+         */
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE redirect_formats " +
+                        "ADD COLUMN openRealDestination INTEGER NOT NULL DEFAULT 0"
                 )
             }
         }

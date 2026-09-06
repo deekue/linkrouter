@@ -20,6 +20,7 @@ data class RedirectFormatEntity(
     @ColumnInfo val enabled: Boolean,
     @ColumnInfo val priority: Int,
     @ColumnInfo val isBuiltIn: Boolean,
+    @ColumnInfo val openRealDestination: Boolean,
 ) {
     fun toRedirectFormat(): RedirectFormat = RedirectFormat(
         id = id,
@@ -31,6 +32,7 @@ data class RedirectFormatEntity(
         enabled = enabled,
         priority = priority,
         isBuiltIn = isBuiltIn,
+        openRealDestination = openRealDestination,
     )
 
     companion object {
@@ -44,6 +46,7 @@ data class RedirectFormatEntity(
             enabled = format.enabled,
             priority = format.priority,
             isBuiltIn = format.isBuiltIn,
+            openRealDestination = format.openRealDestination,
         )
     }
 }

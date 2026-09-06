@@ -101,10 +101,10 @@ fun RedirectFormatsScreen(
     if (showEditor) {
         RedirectFormatEditor(
             existing = editingFormat,
-            onSave = { name, pattern, matchType, extractType, extractTarget ->
+            onSave = { name, pattern, matchType, extractType, extractTarget, openRealDestination ->
                 val editing = editingFormat
                 if (editing == null) {
-                    vm.addFormat(name, pattern, matchType, extractType, extractTarget)
+                    vm.addFormat(name, pattern, matchType, extractType, extractTarget, openRealDestination)
                 } else {
                     vm.updateFormat(
                         editing.copy(
@@ -113,6 +113,7 @@ fun RedirectFormatsScreen(
                             matchType = matchType,
                             extractType = extractType,
                             extractTarget = extractTarget,
+                            openRealDestination = openRealDestination,
                         )
                     )
                 }
@@ -150,6 +151,24 @@ private fun RedirectFormatRowItem(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
+                if (fmt.openRealDestination) {
+                    Spacer(Modifier.width(6.dp))
+                    Box(
+                        modifier = Modifier
+                            .background(
+                                MaterialTheme.colorScheme.tertiaryContainer,
+                                RoundedCornerShape(4.dp),
+                            )
+                            .padding(horizontal = 6.dp, vertical = 1.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = "real destination",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer,
+                        )
+                    }
+                }
                 if (fmt.isBuiltIn) {
                     Spacer(Modifier.width(6.dp))
                     Box(

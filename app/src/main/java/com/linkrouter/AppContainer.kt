@@ -26,7 +26,7 @@ object AppContainer {
         val app = context.applicationContext
         if (!this::ruleRepository.isInitialized) {
             database = Room.databaseBuilder(app, LinkRouterDatabase::class.java, "linkrouter.db")
-                .addMigrations(LinkRouterDatabase.MIGRATION_2_3)
+                .addMigrations(LinkRouterDatabase.MIGRATION_2_3, LinkRouterDatabase.MIGRATION_3_4)
                 // Real migration (2 -> 3) is primary; destructive is a last-resort
                 // safety net only.
                 .fallbackToDestructiveMigration()
@@ -56,8 +56,8 @@ object AppContainer {
         try {
             db.execSQL(
                 "INSERT OR IGNORE INTO redirect_formats " +
-                    "(id, name, pattern, matchType, extractType, extractTarget, enabled, priority, isBuiltIn) " +
-                    "SELECT -1, 'Google', 'google.com/url', 'PATH_PREFIX', 'QUERY_PARAM', 'q', 1, 1000, 1 " +
+                    "(id, name, pattern, matchType, extractType, extractTarget, enabled, priority, isBuiltIn, openRealDestination) " +
+                    "SELECT -1, 'Google', 'google.com/url', 'PATH_PREFIX', 'QUERY_PARAM', 'q', 1, 1000, 1, 0 " +
                     "WHERE NOT EXISTS (SELECT 1 FROM redirect_formats WHERE isBuiltIn = 1)"
             )
         } catch (e: Exception) {

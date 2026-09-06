@@ -148,6 +148,7 @@ class RulesViewModel(app: Application) : AndroidViewModel(app) {
         matchType: com.linkrouter.rules.MatchType,
         extractType: com.linkrouter.rules.ExtractType,
         extractTarget: String,
+        openRealDestination: Boolean,
     ) {
         viewModelScope.launch {
             val fmt = RedirectFormat(
@@ -160,6 +161,7 @@ class RulesViewModel(app: Application) : AndroidViewModel(app) {
                 enabled = true,
                 priority = 0,
                 isBuiltIn = false,
+                openRealDestination = openRealDestination,
             )
             fmtRepo.insert(fmt)
         }

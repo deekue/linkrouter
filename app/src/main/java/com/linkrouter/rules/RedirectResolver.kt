@@ -25,6 +25,24 @@ object RedirectResolver {
         return null
     }
 
+    /**
+     * URL to actually launch for [incoming]: the extracted real destination if the
+     * winning (first valid, priority-order) enabled format has openRealDestination
+     * enabled, otherwise the original wrapper. Pure (no Android types), testable.
+     */
+    fun launchDestination(incoming: String, formats: List<RedirectFormat>): String {
+        val parsed = RuleEngine.normalize(incoming) ?: return incoming
+        for (fmt in formats) {
+            if (!fmt.enabled) continue
+            if (!matchesWrapper(fmt, parsed)) continue
+            val dest = extract(fmt, incoming, parsed) ?: continue
+            if (!isValidDest(dest)) continue
+            // First valid extraction is the winner (same as resolve).
+            return if (fmt.openRealDestination) dest.trim() else incoming
+        }
+        return incoming
+    }
+
     /** Does [fmt]'s wrapper [pattern] match this already-normalized [parsed] URL? */
     private fun matchesWrapper(fmt: RedirectFormat, parsed: RuleEngine.ParsedUrl): Boolean {
         val host = parsed.host
