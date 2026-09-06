@@ -4,7 +4,6 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.util.Log
 import android.widget.Toast
 import com.linkrouter.browsers.BrowserInfo
 import com.linkrouter.browsers.BrowserRegistry
@@ -33,10 +32,6 @@ class DispatcherActivity : Activity() {
     private lateinit var registry: BrowserRegistry
     private lateinit var settings: SettingsStore
     private val dispatchScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-
-    private companion object {
-        const val TAG_DIAG = "LinkRouterDiag"
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -83,21 +78,15 @@ class DispatcherActivity : Activity() {
                 ?: original.toString()
             val matchParsed = RuleEngine.normalize(matchUrl) ?: parsed
             val rule: Rule? = RuleEngine.resolve(rules, matchParsed)
-            Log.w(TAG_DIAG, "DIAG dispatch url=$original matchUrl=$matchUrl rules=${rules.size} formats=${formats.size} " +
-                "rule=${rule?.let { "${it.matchType} '${it.pattern}' -> ${it.targetPackage} [${it.openMode}] enabled=${it.enabled}" } ?: "NULL"}")
 
             // 3. RESOLVE TARGET + LAUNCH
             if (rule == null) {
-                Log.w(TAG_DIAG, "DIAG rule==null -> fallback")
                 routeFallback(original)
             } else {
                 val target = registry.resolveTarget(rule.targetPackage)
-                Log.w(TAG_DIAG, "DIAG resolveTarget('${rule.targetPackage}') -> " +
-                    (target?.let { "OK label='${it.label}' activity=${it.activity}" } ?: "NULL (isInstalled=${registry.isInstalled(rule.targetPackage)})"))
                 when {
                     target == null -> {
                         // Uninstalled target browser (DESIGN.md 8) → fallback.
-                        Log.w(TAG_DIAG, "DIAG target==null -> fallback")
                         routeFallback(original)
                     }
                     rule.openMode == com.linkrouter.rules.OpenMode.PRIVATE -> {
@@ -147,10 +136,8 @@ class DispatcherActivity : Activity() {
     private fun dispatchNormal(uri: Uri, target: BrowserInfo) {
         val intent = registry.targetIntent(uri, target.packageName, target.activity)
         if (intent == null) {
-            Log.w(TAG_DIAG, "DIAG targetIntent -> NULL for '${target.packageName}' (uri=$uri) -> launchSafely will fallback to chooser")
             throw IllegalStateException("target not resolvable")
         }
-        Log.w(TAG_DIAG, "DIAG targetIntent -> OK, launching '${target.packageName}'")
         intent.putExtra(LinkRouter.EXTRA_HANDLED, true) // loop-guard marker
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         startActivity(intent)
