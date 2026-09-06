@@ -147,6 +147,10 @@ class DispatcherActivityTest {
 
     private fun lastToastText(): String? = ShadowToast.getTextOfLatestToast()?.toString()
 
+    /** True when [intent] targets our in-app [BrowserChooserActivity] (the fallback chooser). */
+    private fun isBrowserChooser(intent: Intent): Boolean =
+        intent.component?.className == BrowserChooserActivity::class.java.name
+
     @Before
     fun setUp() {
         AppContainer.ruleRepository = FakeRepository(emptyList())
@@ -244,7 +248,7 @@ class DispatcherActivityTest {
         settle(activity)
 
         val started = startedActivities(activity).single()
-        assertEquals(Intent.ACTION_CHOOSER, started.action)
+        assertTrue(isBrowserChooser(started))
     }
 
     @Test
@@ -256,7 +260,7 @@ class DispatcherActivityTest {
         settle(activity)
 
         val started = startedActivities(activity).single()
-        assertEquals(Intent.ACTION_CHOOSER, started.action)
+        assertTrue(isBrowserChooser(started))
     }
 
     @Test
@@ -380,7 +384,7 @@ class DispatcherActivityTest {
 
         // Must hand off to the chooser instead of re-launching ourselves.
         val started = startedActivities(activity).single()
-        assertEquals(Intent.ACTION_CHOOSER, started.action)
+        assertTrue(isBrowserChooser(started))
     }
 
     @Test
@@ -407,7 +411,7 @@ class DispatcherActivityTest {
         settle(activity)
 
         val started = startedActivities(activity).single()
-        assertEquals(Intent.ACTION_CHOOSER, started.action)
+        assertTrue(isBrowserChooser(started))
     }
 
     @Test
@@ -420,7 +424,7 @@ class DispatcherActivityTest {
         settle(activity)
 
         val started = startedActivities(activity).single()
-        assertEquals(Intent.ACTION_CHOOSER, started.action)
+        assertTrue(isBrowserChooser(started))
     }
 
     @Test

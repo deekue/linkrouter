@@ -30,6 +30,8 @@
     <string name="export_rules">Export rules (JSON)</string>
     <string name="open_default_prompt">Open default-browser prompt</string>
     <string name="blocked_toast">Link blocked by LinkRouter (fallback = BLOCK)</string>
+    <string name="open_with">Open with</string>
+    <string name="open_failed">Couldn\'t open the link in %1$s</string>
     <string name="private_not_supported">Private browsing isn\'t supported by %1$s — opened normally</string>
     <string name="routing_toast">You are routing matching links to %1$s</string>
     <string name="work_profile_note">Browsers are discovered per active profile only.</string>

@@ -6,7 +6,9 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.widget.Toast
 import com.linkrouter.ActivityLaunchGuard
+import com.linkrouter.BrowserChooserActivity
 import com.linkrouter.LinkRouter
+import com.linkrouter.R
 import com.linkrouter.settings.FallbackMode
 import com.linkrouter.settings.SettingsStore
 
@@ -15,8 +17,6 @@ import com.linkrouter.settings.SettingsStore
  * (DESIGN.md section 9), driven by the user's chosen mode.
  */
 object FallbackHandler {
-
-    private const val CHOOSER_TITLE = "Open link with"
 
     /**
      * [browserResolver] resolves a browser package name to a launchable
@@ -38,7 +38,7 @@ object FallbackHandler {
             FallbackMode.BLOCK -> {
                 Toast.makeText(
                     activity,
-                    activity.getString(com.linkrouter.R.string.blocked_toast),
+                    activity.getString(R.string.blocked_toast),
                     Toast.LENGTH_SHORT,
                 ).show()
             }
@@ -64,7 +64,7 @@ object FallbackHandler {
             if (pkg != null) {
                 Toast.makeText(
                     activity,
-                    activity.getString(com.linkrouter.R.string.fallback_specific_uninstalled, pkg),
+                    activity.getString(R.string.fallback_specific_uninstalled, pkg),
                     Toast.LENGTH_SHORT,
                 ).show()
             }
@@ -80,13 +80,28 @@ object FallbackHandler {
         }
     }
 
+    /**
+     * Show a browser chooser for [uri].
+     *
+     * We launch our own [BrowserChooserActivity] instead of the framework
+     * `Intent.createChooser`. The framework chooser re-resolves the ACTION_VIEW
+     * intent and enumerates *every* matching activity — including LinkRouter's
+     * own [com.linkrouter.DispatcherActivity] (the very activity that makes us
+     * the default browser). That puts LinkRouter in its own chooser, and when it
+     * is the OS default browser it can be the *only* option shown.
+     *
+     * No public intent extra reliably excludes a specific component: `EXTRA_CHOICES`
+     * does not exist, `EXTRA_CHOOSER_TARGETS` takes `ChooserTarget[]` (max 2) and
+     * only *adds* targets, and `EXTRA_EXCLUDE_COMPONENTS` is declared but has no
+     * consumer in the resolver path. A custom chooser built from the already
+     * self-excluded [com.linkrouter.browsers.BrowserRegistry] is the only robust
+     * way to guarantee the user is never offered LinkRouter as a choice.
+     */
     fun showChooser(activity: Activity, uri: Uri, title: String? = null) {
-        val view = Intent(Intent.ACTION_VIEW, uri).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            putExtra(LinkRouter.EXTRA_HANDLED, true) // loop-guard marker
-        }
-        val chooser = Intent.createChooser(view, title ?: CHOOSER_TITLE)
-        chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val chooser = Intent(activity, BrowserChooserActivity::class.java)
+            .putExtra(LinkRouter.EXTRA_URI, uri)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
         try {
             activity.startActivity(chooser)
         } catch (e: Exception) {

@@ -56,5 +56,18 @@
                 <data android:scheme="https" />
             </intent-filter>
         </activity>
+
+        <!--
+          In-app browser chooser (DESIGN.md 9). Internal only (not exported):
+          it is launched exclusively by LinkRouter via an explicit component
+          intent, never by the framework. It is intentionally NOT registered
+          with an ACTION_VIEW intent-filter, so it never appears as a browser
+          option in any system chooser.
+        -->
+        <activity
+            android:name=".BrowserChooserActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:theme="@style/Theme.LinkRouter" />
     </application>
 </manifest>
