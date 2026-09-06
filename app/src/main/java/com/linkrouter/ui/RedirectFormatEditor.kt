@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -45,6 +47,7 @@ import com.linkrouter.rules.RedirectFormat
 import com.linkrouter.rules.RedirectFormatValidator
 
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 fun RedirectFormatEditor(
     existing: RedirectFormat?,
     onSave: (name: String, pattern: String, matchType: MatchType, extractType: ExtractType, extractTarget: String, openRealDestination: Boolean) -> Unit,
@@ -124,11 +127,12 @@ fun RedirectFormatEditor(
                     context.getString(AppR.string.match_type),
                     style = MaterialTheme.typography.labelLarge,
                 )
-                Row(
+                FlowRow(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 6.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     MatchType.entries.forEach { m ->
                         FilterChip(
@@ -146,11 +150,12 @@ fun RedirectFormatEditor(
                     context.getString(AppR.string.extract_type),
                     style = MaterialTheme.typography.labelLarge,
                 )
-                Row(
+                FlowRow(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 6.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     ExtractType.entries.forEach { e ->
                         FilterChip(

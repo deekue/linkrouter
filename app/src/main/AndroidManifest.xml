@@ -46,6 +46,7 @@
             android:exported="true"
             android:excludeFromRecents="true"
             android:launchMode="singleTop"
+            android:taskAffinity=""
             android:theme="@style/Theme.LinkRouter.Transparent">
             <intent-filter android:label="@string/dispatcher_label">
                 <action android:name="android.intent.action.VIEW" />
