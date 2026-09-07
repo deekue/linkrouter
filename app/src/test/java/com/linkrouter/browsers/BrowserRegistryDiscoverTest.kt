@@ -138,6 +138,45 @@ class BrowserRegistryDiscoverTest {
     }
 
     @Test
+    fun `installed synchronously resolves an installed browser with an empty cache`() {
+        val pkg = "org.mozilla.firefox"
+        addBrowser(pkg, "org.mozilla.firefox.App")
+
+        // Fresh process: the async refresh() has not populated the cache yet
+        // (its cache write only happens on a Main-looper resume, which is paused
+        // in Robolectric), so this is deterministically empty here.
+        val registry = BrowserRegistry(context())
+        assertTrue("cache must be empty before the async sweep completes",
+            registry.browsers.value.isEmpty())
+
+        // The FALLBACK-BROWSER dispatch path (FallbackHandler -> browserResolver
+        // -> registry.installed) must resolve the browser synchronously via a
+        // real PackageManager check, NOT by reading the empty cache and
+        // returning null (which surfaced as "not installed" + chooser even
+        // though the browser was installed).
+        val target = registry.installed(pkg)
+        assertNotNull("installed() must return the installed browser synchronously (cold cache)", target)
+        assertEquals(pkg, target?.packageName)
+
+        // The resolved target must also be resolvable to a real ACTION_VIEW intent
+        // (the fallback path then launches it).
+        val resolved = target!!
+        assertNotNull(
+            "targetIntent must be resolvable for the installed browser",
+            registry.targetIntent(Uri.parse("https://example.com/"), resolved.packageName, resolved.activity),
+        )
+        registry.shutdown()
+    }
+
+    @Test
+    fun `installed returns null for an uninstalled package`() {
+        val registry = BrowserRegistry(context())
+        assertNull("an uninstalled package must not report as installed",
+            registry.installed("org.does.not.exist"))
+        registry.shutdown()
+    }
+
+    @Test
     fun `discovery excludes the app itself (loop guard)`() {
         addBrowser("com.example.otherbrowser", "com.example.otherbrowser.Main")
 

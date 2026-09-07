@@ -103,8 +103,19 @@ open class BrowserRegistry(context: Context) {
         _browsers.value = list
     }
 
+    /**
+     * Whether [packageName] is an installed browser, returning its [BrowserInfo].
+     *
+     * Cold-start-safe: delegates to [resolveTarget] rather than reading only the
+     * in-memory [browsers] cache. On a fresh process (the common case when the
+     * dispatcher is launched directly for a link tap) the async [refresh] sweep
+     * has not populated the cache yet, so a cache-only read returns null and a
+     * perfectly valid fallback browser (or rule target) is silently dropped
+     * ("not installed" + chooser). [resolveTarget] fast-paths the cache and, on
+     * a miss, does a real PackageManager check + builds a minimal entry on demand.
+     */
     open fun installed(packageName: String): BrowserInfo? =
-        _browsers.value.firstOrNull { it.packageName == packageName }
+        resolveTarget(packageName)
 
     fun isInstalled(packageName: String): Boolean =
         try {
