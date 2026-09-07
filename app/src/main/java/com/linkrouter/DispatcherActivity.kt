@@ -30,6 +30,7 @@ class DispatcherActivity : Activity() {
 
     private lateinit var repo: RuleRepository
     private lateinit var redirectRepo: com.linkrouter.rules.RedirectFormatRepository
+    private lateinit var shortenerRepo: com.linkrouter.rules.ShortenerHostRepository
     private lateinit var registry: BrowserRegistry
     private lateinit var settings: SettingsStore
     private val dispatchScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -39,6 +40,7 @@ class DispatcherActivity : Activity() {
 
         repo = AppContainer.get(this).ruleRepository
         redirectRepo = AppContainer.get(this).redirectFormatRepository
+        shortenerRepo = AppContainer.get(this).shortenerHostRepository
         registry = AppContainer.get(this).browserRegistry
         settings = AppContainer.get(this).settings
 
@@ -70,19 +72,40 @@ class DispatcherActivity : Activity() {
             // 2. MATCH against enabled rules (in priority order), using the
             // user-managed redirect formats to resolve the wrapper to its
             // destination for RULE MATCHING only (we still launch the original).
-            val (rules, formats) = withContext(Dispatchers.IO) {
-                repo.all() to redirectRepo.allEnabled()
+            val (rules, formats, shortenerHosts) = withContext(Dispatchers.IO) {
+                Triple(repo.all(), redirectRepo.allEnabled(), shortenerRepo.allEnabled())
             }
+
+            // D9 shortener resolution: if the incoming host is an enabled shortener host,
+            // follow its redirects (pure-JVM fast path) to the final URL. On success we
+            // BOTH match AND launch the final URL. Non-resolvable results degrade
+            // gracefully to the original URL (D6: never silently pretend).
+            var finalUrl: String? = null
+            if (shortenerHosts.isNotEmpty()) {
+                val host = parsed.host.lowercase()
+                val isShortener = shortenerHosts.any {
+                    host == it.host.lowercase() || host.endsWith("." + it.host.lowercase())
+                }
+                if (isShortener) {
+                    val result = withContext(Dispatchers.IO) {
+                        ShortenerResolver.resolve(original.toString(), AppContainer.shortenerFetcher)
+                    }
+                    if (result is ShortenerResolver.Result.Resolved) finalUrl = result.finalUrl
+                }
+            }
+
             @Suppress("DEPRECATION")
-            val matchUrl = RedirectResolver.resolve(original.toString(), formats)
+            val matchUrl = finalUrl
+                ?: RedirectResolver.resolve(original.toString(), formats)
                 ?: RuleEngine.unwrapRedirect(original.toString())
                 ?: original.toString()
             val matchParsed = RuleEngine.normalize(matchUrl) ?: parsed
             val rule: Rule? = RuleEngine.resolve(rules, matchParsed)
 
-            // If the winning format has openRealDestination, launch the extracted
-            // real destination instead of the original wrapper link.
-            val launchUri = Uri.parse(RedirectResolver.launchDestination(original.toString(), formats))
+            // Launch the shortener's final URL when resolved; otherwise honor the existing
+            // openRealDestination logic on the original wrapper.
+            val launchUrl = finalUrl ?: RedirectResolver.launchDestination(original.toString(), formats)
+            val launchUri = Uri.parse(launchUrl)
 
             // 3. RESOLVE TARGET + LAUNCH
             if (rule == null) {

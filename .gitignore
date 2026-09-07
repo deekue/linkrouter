@@ -1,3 +1,6 @@
+# interim agent plans
+/plans/
+
 # Gradle files
 .gradle/
 build/

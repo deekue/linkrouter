@@ -2,9 +2,16 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!--
-      No permissions are declared (DESIGN.md D7): zero runtime permissions,
-      zero network access.
+      No runtime permissions are declared (DESIGN.md D7): zero runtime
+      permissions. The only permission below is a NORMAL (install-granted) one,
+      exercised only when the user enables a shortener host.
     -->
+
+    <!-- D9: INTERNET is a NORMAL (install-granted) permission, NOT a runtime
+         permission. It is only exercised when the user enables a shortener host;
+         all built-in hosts are disabled by default, so a default install makes
+         zero network calls. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
 
     <!-- Browser discovery without QUERY_ALL_PACKAGES (DESIGN.md 8). -->
     <queries>

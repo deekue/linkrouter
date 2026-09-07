@@ -28,6 +28,8 @@ data class RedirectFormatRow(
     val preview: String?,
 )
 
+data class ShortenerHostRow(val host: com.linkrouter.rules.ShortenerHost)
+
 class RulesViewModel(app: Application) : AndroidViewModel(app) {
 
     private val container = AppContainer.get(app)
@@ -35,6 +37,7 @@ class RulesViewModel(app: Application) : AndroidViewModel(app) {
     private val registry = container.browserRegistry
     private val settings = container.settings
     private val fmtRepo = container.redirectFormatRepository
+    private val shortenerRepo = container.shortenerHostRepository
 
     val browsers by lazy { registry.browsers }
 
@@ -62,6 +65,9 @@ class RulesViewModel(app: Application) : AndroidViewModel(app) {
     private val _formats = mutableStateOf<List<RedirectFormatRow>>(emptyList())
     val formats: List<RedirectFormatRow> get() = _formats.value
 
+    private val _shortenerHosts = mutableStateOf<List<ShortenerHostRow>>(emptyList())
+    val shortenerHosts: List<ShortenerHostRow> get() = _shortenerHosts.value
+
     init {
         viewModelScope.launch {
             // Combine both flows so rows rebuild when the async browser discovery
@@ -88,6 +94,11 @@ class RulesViewModel(app: Application) : AndroidViewModel(app) {
                 _formats.value = list.map { fmt ->
                     RedirectFormatRow(fmt, RedirectFormatValidator.preview(fmt))
                 }
+            }
+        }
+        viewModelScope.launch {
+            container.shortenerHostRepository.observeAll().collect { list ->
+                _shortenerHosts.value = list.map { ShortenerHostRow(it) }
             }
         }
     }
@@ -200,6 +211,28 @@ class RulesViewModel(app: Application) : AndroidViewModel(app) {
 
     fun resetFormatBuiltIn() {
         viewModelScope.launch { fmtRepo.resetBuiltIn() }
+    }
+
+    fun addShortenerHost(name: String, host: String) {
+        viewModelScope.launch {
+            shortenerRepo.insert(
+                com.linkrouter.rules.ShortenerHost(
+                    id = 0,
+                    name = name.trim(),
+                    host = host.trim().lowercase(),
+                    enabled = true,
+                    isBuiltIn = false,
+                )
+            )
+        }
+    }
+
+    fun setShortenerHostEnabled(id: Long, enabled: Boolean) {
+        viewModelScope.launch { shortenerRepo.setEnabled(id, enabled) }
+    }
+
+    fun deleteShortenerHost(id: Long) {
+        viewModelScope.launch { shortenerRepo.delete(id) }
     }
 
     fun importFormats(formats: List<RedirectFormat>) {

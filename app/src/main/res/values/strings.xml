@@ -73,4 +73,10 @@
     <string name="no_match">no match</string>
     <string name="import_ok_formats">Imported %1$d formats</string>
     <string name="import_ok_both">Imported %1$d rules and %2$d formats</string>
+
+    <!-- Shortener hosts -->
+    <string name="shorteners_title">Shortener hosts</string>
+    <string name="shorteners_body">When enabled, LinkRouter follows these shorteners\' redirects to the real destination, matches your rules on it, and opens it. Disabled by default — no network.</string>
+    <string name="add_shortener_host">Add shortener host</string>
+    <string name="shortener_host">Host (e.g. t.co)</string>
 </resources>

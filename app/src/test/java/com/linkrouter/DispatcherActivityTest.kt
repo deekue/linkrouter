@@ -42,6 +42,7 @@ class DispatcherActivityTest {
     private class RoomlessDb : com.linkrouter.rules.LinkRouterDatabase() {
         override fun ruleDao(): com.linkrouter.rules.RuleDao = NoopDao
         override fun redirectFormatDao(): com.linkrouter.rules.RedirectFormatDao = NoopFormatDao
+        override fun shortenerHostDao(): com.linkrouter.rules.ShortenerHostDao = NoopShortenerHostDao
         override fun clearAllTables() {}
         override fun createInvalidationTracker(): androidx.room.InvalidationTracker =
             androidx.room.InvalidationTracker(this, "rules")
@@ -63,6 +64,21 @@ class DispatcherActivityTest {
             override suspend fun deleteAll() {}
             override suspend fun deleteNonBuiltIn() {}
             override suspend fun builtIns(): List<com.linkrouter.rules.RedirectFormatEntity> = emptyList()
+            override suspend fun count(): Int = 0
+        }
+
+        private object NoopShortenerHostDao : com.linkrouter.rules.ShortenerHostDao {
+            override fun observeAll(): kotlinx.coroutines.flow.Flow<List<com.linkrouter.rules.ShortenerHostEntity>> =
+                kotlinx.coroutines.flow.emptyFlow()
+            override fun observeEnabled(): kotlinx.coroutines.flow.Flow<List<com.linkrouter.rules.ShortenerHostEntity>> =
+                kotlinx.coroutines.flow.emptyFlow()
+            override suspend fun all(): List<com.linkrouter.rules.ShortenerHostEntity> = emptyList()
+            override suspend fun allEnabled(): List<com.linkrouter.rules.ShortenerHostEntity> = emptyList()
+            override suspend fun upsert(entity: com.linkrouter.rules.ShortenerHostEntity): Long = 0L
+            override suspend fun update(entity: com.linkrouter.rules.ShortenerHostEntity) {}
+            override suspend fun deleteById(id: Long) {}
+            override suspend fun deleteNonBuiltIn() {}
+            override suspend fun builtIns(): List<com.linkrouter.rules.ShortenerHostEntity> = emptyList()
             override suspend fun count(): Int = 0
         }
 
@@ -99,6 +115,10 @@ class DispatcherActivityTest {
 
     private class FakeFormatRepository(private val formats: List<com.linkrouter.rules.RedirectFormat>) : com.linkrouter.rules.RedirectFormatRepository(RoomlessDb()) {
         override suspend fun allEnabled(): List<com.linkrouter.rules.RedirectFormat> = formats
+    }
+
+    private class FakeShortenerRepo(private val hosts: List<com.linkrouter.rules.ShortenerHost>) : com.linkrouter.rules.ShortenerHostRepository(RoomlessDb()) {
+        override suspend fun allEnabled(): List<com.linkrouter.rules.ShortenerHost> = hosts
     }
 
     // --- helpers ---
@@ -157,6 +177,10 @@ class DispatcherActivityTest {
     fun setUp() {
         AppContainer.ruleRepository = FakeRepository(emptyList())
         AppContainer.redirectFormatRepository = FakeFormatRepository(emptyList())
+        AppContainer.shortenerHostRepository = FakeShortenerRepo(emptyList())
+        // Safe default: no-redirect fake fetcher so no test ever hits the real
+        // network (no shortener host is enabled by default in the fake repo).
+        AppContainer.shortenerFetcher = ShortenerResolver.Fetcher { _ -> ShortenerResolver.HopResponse(200, null, "") }
         AppContainer.browserRegistry = FakeRegistry(context(), null)
         AppContainer.settings = newSettings()
     }
@@ -251,6 +275,28 @@ class DispatcherActivityTest {
 
         val started = startedActivities(activity).single()
         assertTrue(isBrowserChooser(started))
+    }
+
+    @Test
+    fun `enabled shortener resolves final url and launches it`() {
+        AppContainer.ruleRepository = FakeRepository(listOf(rule("org.example.browser"))) // pattern example.com
+        AppContainer.shortenerHostRepository = FakeShortenerRepo(listOf(
+            com.linkrouter.rules.ShortenerHost(id = 1, name = "t.co", host = "t.co", enabled = true, isBuiltIn = true)
+        ))
+        AppContainer.shortenerFetcher = ShortenerResolver.Fetcher { url ->
+            if (url == "https://t.co/abc") ShortenerResolver.HopResponse(302, "https://example.com/page", "")
+            else ShortenerResolver.HopResponse(200, null, "")
+        }
+        AppContainer.browserRegistry = FakeRegistry(context(), browser("org.example.browser"))
+
+        val activity = build("https://t.co/abc")
+        settle(activity)
+
+        val started = startedActivities(activity).single()
+        assertEquals("org.example.browser", started.`package`)
+        // The FINAL url must be launched (not the t.co wrapper).
+        assertEquals(Uri.parse("https://example.com/page"), started.data)
+        assertTrue(started.getBooleanExtra(LinkRouter.EXTRA_HANDLED, false))
     }
 
     @Test

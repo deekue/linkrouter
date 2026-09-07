@@ -3,10 +3,12 @@
 > Self-contained design + build plan for a pure Android **dispatcher** app.
 > It matches each outgoing web URL against user-defined rules and launches the
 > target browser — optionally in private — then exits immediately. It never
-> renders pages, makes no network calls, and requires **zero permissions**.
+> renders pages, makes no network calls, and requires **zero permissions**
+> (the sole exception is D9 shortener resolution: opt-in per host, off by
+> default → zero network).
 
 This document is the source of truth for a build agent. Follow it in the
-milestone order (M1 → M5). Where a decision is listed under "Locked decisions"
+milestone order (M1 → M7). Where a decision is listed under "Locked decisions"
 it is final — do not re-litigate it.
 
 ---
@@ -21,8 +23,9 @@ it is final — do not re-litigate it.
 | D4 | App scope | **Dispatcher + optional in-app WebView target** (REAL private; user opts in per rule) |
 | D5 | Interception | **Default browser** (transparent `ACTION_VIEW` re-dispatch) |
 | D6 | No-true-private fallback | **Warn (one-time toast) + open normally** |
-| D7 | Network | **None.** Zero network calls, zero runtime permissions |
+| D7 | Network | **None.** Zero network calls, zero runtime permissions *(exception: D9 shortener resolution uses the INTERNET normal permission only when a host is enabled; off by default → zero network)* |
 | D8 | Unmatched / uninstalled link | → **System chooser** (default) or OS default browser |
+| D9 | **Shortener resolution** (t.co, bit.ly, …) | **Opt-in per host.** When a host is enabled, the dispatcher follows its redirects (pure-JVM fast path) to the final URL, re-runs the rule engine on it, and launches the final URL. Disabled by default → zero network. Requires the `INTERNET` *normal* permission (auto-granted, not a runtime permission) — see D7 note. Non-resolvable links degrade to the original URL (D6). |
 
 ---
 
@@ -216,6 +219,35 @@ private fun dispatchNormal(uri: Uri, target: BrowserInfo) {
   catch (e: Exception) { FallbackHandler.showChooser(uri) }  // D: crash-safe
 }
 ```
+
+### Shortener resolution (D9)
+
+For an **enabled** shortener host (t.co, bit.ly, is.gd, …), the dispatcher
+follows the shortener's server-side 3xx redirects to the **final URL**,
+**re-runs the rule engine on that final URL**, and then **launches the final
+URL**. Resolution is opt-in per host (`ShortenerHost`, a separate entity from
+`RedirectFormat` — redirect formats are pure-JVM string extraction, shortener
+resolution is network following); all built-in hosts ship **disabled**, so the
+default build still makes zero network calls (D7).
+
+- **Fast path (implemented):** pure-JVM redirect following in
+  `ShortenerResolver` (`RealFetcher` via `HttpURLConnection`,
+  `instanceFollowRedirects=false`, browser UA, 6 s connect/read timeouts, max
+  6 hops, loop guard on revisited URLs). Settled-page detection inspects the
+  200 body (capped ~64 KB) for `<meta http-equiv=refresh>` /
+  `location.replace` / `location.href` → flagged as an interstitial rather
+  than resolved.
+- **Graceful degradation (D6):** if resolution fails (interstitial/JS, loop,
+  non-http(s) target, hop limit, network error), the dispatcher falls back to
+  the **ORIGINAL URL** through the normal rule path — it never silently
+  pretends.
+- **Next milestone (NOT implemented):** a WebView fallback that resolves
+  JS/Cloudflare interstitials — an ephemeral resolution WebView that detects
+  settle and returns the final URL (M7).
+- **Permission note (D7/D9):** `INTERNET` is a *normal* (install-granted)
+  permission, **not** a runtime permission. It is only exercised when at least
+  one shortener host is enabled, and all built-in hosts are disabled by
+  default.
 
 ---
 
@@ -440,9 +472,11 @@ user's chosen mode (default = **System chooser**):
 | **M3** | Private strategies | `PrivateLauncher` + `StrategyTable`; Firefox true-private; in-app WebView target (REAL); warn+normal degradation UX; capability badge. |
 | **M4** | Polish | JSON import/export; browser-discovery refresh; all fallback modes; Test button; settings. |
 | **M5** | QA & release | Manual matrix green; unit + Robolectric green; Play listing + privacy labels. |
+| **M6** | Shortener resolution — fast path (D9) | `ShortenerResolver` pure-JVM redirect following; `ShortenerHost` opt-in per host (built-ins disabled); dispatcher re-runs the rule engine on the final URL and launches it; graceful degradation to the original URL (D6). **Completed.** |
+| **M7** | Shortener resolution — WebView fallback (D9) | Ephemeral resolution WebView that settles JS/Cloudflare interstitials and returns the final URL. **Future work — NOT implemented.** |
 
-Build strictly in M1 → M5 order; each milestone must be independently shippable
-and tested before the next begins.
+Build strictly in M1 → M7 order; each milestone must be independently shippable
+and tested before the next begins. (M6 is already complete; M7 is deferred.)
 
 ---
 
@@ -454,3 +488,6 @@ and tested before the next begins.
 - No VPN/DNS interception.
 - No multi-profile simultaneous routing (only the active profile's browsers).
 - No account sync (import/export is local JSON only).
+- **WebView interstitial resolver** for JS/Cloudflare shortener interstitials
+  (M7) — deferred; the shortener fast path (M6/D9) degrades such links to the
+  original URL instead (D6).

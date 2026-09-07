@@ -7,14 +7,15 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [RuleEntity::class, RedirectFormatEntity::class],
-    version = 4,
+    entities = [RuleEntity::class, RedirectFormatEntity::class, ShortenerHostEntity::class],
+    version = 5,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
 abstract class LinkRouterDatabase : RoomDatabase() {
     abstract fun ruleDao(): RuleDao
     abstract fun redirectFormatDao(): RedirectFormatDao
+    abstract fun shortenerHostDao(): ShortenerHostDao
 
     companion object {
         /**
@@ -53,6 +54,29 @@ abstract class LinkRouterDatabase : RoomDatabase() {
                 db.execSQL(
                     "ALTER TABLE redirect_formats " +
                         "ADD COLUMN openRealDestination INTEGER NOT NULL DEFAULT 0"
+                )
+            }
+        }
+
+        /**
+         * v4 -> v5: add the `shortener_hosts` table. Column names/types must
+         * match Room's annotation-generated schema EXACTLY (Kotlin property
+         * names as-is; boolean -> INTEGER).
+         */
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `shortener_hosts` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`name` TEXT NOT NULL, " +
+                        "`host` TEXT NOT NULL, " +
+                        "`enabled` INTEGER NOT NULL, " +
+                        "`priority` INTEGER NOT NULL, " +
+                        "`isBuiltIn` INTEGER NOT NULL)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_shortener_hosts_enabled_priority " +
+                        "ON shortener_hosts (enabled, priority)"
                 )
             }
         }

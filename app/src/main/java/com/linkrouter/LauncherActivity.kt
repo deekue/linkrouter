@@ -15,6 +15,7 @@ import com.linkrouter.ui.RulesViewModel
 import com.linkrouter.ui.SettingsScreen
 import com.linkrouter.ui.RulesScreen
 import com.linkrouter.ui.RedirectFormatsScreen
+import com.linkrouter.ui.ShortenerHostsScreen
 
 /**
  * Normal app icon (DESIGN.md section 3/10) — distinct from the browser role.
@@ -72,11 +73,16 @@ private fun RulesApp(
             vm = vm,
             onBack = { onNavigate("rules") },
         )
+        "shorteners" -> ShortenerHostsScreen(
+            vm = vm,
+            onBack = { onNavigate("rules") },
+        )
         else -> RulesScreen(
             vm = vm,
             onOpenSettings = { onNavigate("settings") },
             onOpenDefaultBrowserPrompt = openDefaultBrowserPrompt,
             onOpenRedirects = { onNavigate("redirects") },
+            onOpenShorteners = { onNavigate("shorteners") },
         )
     }
 }
