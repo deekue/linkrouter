@@ -96,5 +96,18 @@
             android:exported="false"
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:theme="@style/Theme.LinkRouter" />
+
+        <!--
+          Ephemeral resolution WebView (DESIGN.md 6 / M7). Internal only (not
+          exported): launched exclusively by LinkRouter (via the dispatcher) to
+          settle JS/Cloudflare shortener interstitials and return the final URL.
+          It is a *resolution* mechanism, not a browsing experience (no chrome).
+          No ACTION_VIEW filter — never appears as a browser in the system chooser.
+        -->
+        <activity
+            android:name=".ResolutionWebViewActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:theme="@style/Theme.LinkRouter" />
     </application>
 </manifest>

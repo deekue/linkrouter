@@ -10,6 +10,7 @@ import com.linkrouter.browsers.WebViewTarget
 import com.linkrouter.rules.OpenMode
 import com.linkrouter.rules.Rule
 import com.linkrouter.rules.RuleRepository
+import com.linkrouter.rules.ShortenerWebResolver
 import com.linkrouter.settings.FallbackMode
 import com.linkrouter.settings.SettingsStore
 import org.junit.After
@@ -121,6 +122,22 @@ class DispatcherActivityTest {
         override suspend fun allEnabled(): List<com.linkrouter.rules.ShortenerHost> = hosts
     }
 
+    /**
+     * M7 fake: resolves synchronously to a fixed final URL (or null) without
+     * launching any activity. [calls] records each invocation so tests can assert
+     * the web resolver was consulted (and only on the interstitial path).
+     */
+    private class FakeWebResolver(
+        private val result: String?,
+        val calls: MutableList<String> = mutableListOf(),
+    ) : ShortenerWebResolver {
+        override suspend fun resolve(context: android.content.Context, url: String): String? {
+            calls.add(url)
+            return result
+        }
+        // deliverResult is a no-op on the interface default.
+    }
+
     // --- helpers ---
 
     private fun rule(pkg: String, mode: OpenMode = OpenMode.NORMAL) = Rule(
@@ -181,6 +198,9 @@ class DispatcherActivityTest {
         // Safe default: no-redirect fake fetcher so no test ever hits the real
         // network (no shortener host is enabled by default in the fake repo).
         AppContainer.shortenerFetcher = ShortenerResolver.Fetcher { _ -> ShortenerResolver.HopResponse(200, null, "") }
+        // M7 default: a null-returning fake so no existing test's behavior
+        // changes (the web resolver is only consulted on the interstitial path).
+        AppContainer.shortenerWebResolver = FakeWebResolver(null)
         AppContainer.browserRegistry = FakeRegistry(context(), null)
         AppContainer.settings = newSettings()
     }
@@ -297,6 +317,60 @@ class DispatcherActivityTest {
         // The FINAL url must be launched (not the t.co wrapper).
         assertEquals(Uri.parse("https://example.com/page"), started.data)
         assertTrue(started.getBooleanExtra(LinkRouter.EXTRA_HANDLED, false))
+    }
+
+    @Test
+    fun `enabled shortener interstitial resolves via web resolver and launches the final url`() {
+        AppContainer.ruleRepository = FakeRepository(listOf(rule("org.example.browser"))) // pattern example.com
+        AppContainer.shortenerHostRepository = FakeShortenerRepo(listOf(
+            com.linkrouter.rules.ShortenerHost(id = 1, name = "t.co", host = "t.co", enabled = true, isBuiltIn = true)
+        ))
+        // Fast path: a 200 page whose body triggers an INTERSTITIAL (JS redirect).
+        AppContainer.shortenerFetcher = ShortenerResolver.Fetcher { _ ->
+            ShortenerResolver.HopResponse(200, null, "<html><script>window.location.replace('https://example.com/page')</script></html>")
+        }
+        val web = FakeWebResolver("https://example.com/page")
+        AppContainer.shortenerWebResolver = web
+        AppContainer.browserRegistry = FakeRegistry(context(), browser("org.example.browser"))
+
+        val activity = build("https://t.co/abc")
+        settle(activity)
+
+        // The web resolver was consulted (escalated on Interstitial).
+        assertTrue("web resolver should be consulted on interstitial", web.calls.isNotEmpty())
+        assertEquals("https://t.co/abc", web.calls.first())
+
+        val started = startedActivities(activity).single()
+        assertEquals("org.example.browser", started.`package`)
+        // The FINAL url (returned by the web resolver) must be launched.
+        assertEquals(Uri.parse("https://example.com/page"), started.data)
+        assertTrue(started.getBooleanExtra(LinkRouter.EXTRA_HANDLED, false))
+    }
+
+    @Test
+    fun `enabled shortener interstitial with web resolver failing degrades to original url`() {
+        AppContainer.ruleRepository = FakeRepository(emptyList()) // no rule matches t.co
+        AppContainer.shortenerHostRepository = FakeShortenerRepo(listOf(
+            com.linkrouter.rules.ShortenerHost(id = 1, name = "t.co", host = "t.co", enabled = true, isBuiltIn = true)
+        ))
+        // Fast path: a 200 page whose body triggers an INTERSTITIAL (meta refresh).
+        AppContainer.shortenerFetcher = ShortenerResolver.Fetcher { _ ->
+            ShortenerResolver.HopResponse(200, null, "<html><head><meta http-equiv=\"refresh\" content=\"0;url=https://example.com/page\"></head></html>")
+        }
+        // Web resolver fails → returns null → degrade to the original URL (D6).
+        val web = FakeWebResolver(null)
+        AppContainer.shortenerWebResolver = web
+        AppContainer.browserRegistry = FakeRegistry(context(), null)
+
+        val activity = build("https://t.co/abc")
+        settle(activity)
+
+        // The web resolver was consulted, but it failed → no crash, no final URL.
+        assertTrue("web resolver should be consulted on interstitial", web.calls.isNotEmpty())
+        // Degraded to the ORIGINAL url via the normal (no-rule) path → chooser.
+        val started = startedActivities(activity).single()
+        assertTrue(isBrowserChooser(started))
+        assertEquals(Uri.parse("https://t.co/abc"), started.getParcelableExtra(LinkRouter.EXTRA_URI))
     }
 
     @Test

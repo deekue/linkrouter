@@ -5,10 +5,12 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.linkrouter.browsers.BrowserRegistry
+import com.linkrouter.rules.ActivityWebResolver
 import com.linkrouter.rules.LinkRouterDatabase
 import com.linkrouter.rules.RedirectFormatRepository
 import com.linkrouter.rules.RuleRepository
 import com.linkrouter.rules.ShortenerHostRepository
+import com.linkrouter.rules.ShortenerWebResolver
 import com.linkrouter.settings.SettingsStore
 
 /** Minimal manual DI container. */
@@ -28,6 +30,12 @@ object AppContainer {
     // so the dispatcher never touches the network. Only consulted when a
     // shortener host is enabled (D8).
     var shortenerFetcher: ShortenerResolver.Fetcher = ShortenerResolver.RealFetcher()
+
+    // M7 WebView fallback (test seam): production default is the real
+    // ActivityWebResolver (launches the ephemeral ResolutionWebViewActivity);
+    // tests replace this with a fake whose resolve() returns synchronously.
+    // Only consulted when the fast path returned Interstitial (D9/D6).
+    var shortenerWebResolver: ShortenerWebResolver = ActivityWebResolver()
 
     @Synchronized
     fun get(context: Context): AppContainer {

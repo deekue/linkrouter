@@ -67,6 +67,15 @@ class DispatcherActivity : Activity() {
         dispatch(original, parsed)
     }
 
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        // M7 (D9): the ephemeral resolution WebView reports back here. Forward to
+        // the web resolver so a pending ActivityWebResolver.resolve() can resume.
+        // No-op when no resolution is in flight (fakes deliver synchronously).
+        AppContainer.shortenerWebResolver.deliverResult(resultCode, data)
+    }
+
     private fun dispatch(original: Uri, parsed: RuleEngine.ParsedUrl) {
         dispatchScope.launch {
             // 2. MATCH against enabled rules (in priority order), using the
@@ -90,7 +99,23 @@ class DispatcherActivity : Activity() {
                     val result = withContext(Dispatchers.IO) {
                         ShortenerResolver.resolve(original.toString(), AppContainer.shortenerFetcher)
                     }
-                    if (result is ShortenerResolver.Result.Resolved) finalUrl = result.finalUrl
+                    when (result) {
+                        is ShortenerResolver.Result.Resolved -> finalUrl = result.finalUrl
+                        // M7 (D9): a JS/<meta refresh>/Cloudflare interstitial the
+                        // pure-JVM fast path cannot settle → escalate to the
+                        // ephemeral resolution WebView, which returns the final URL.
+                        // On failure/timeout it returns null → finalUrl stays null →
+                        // degrade to the original URL (D6: never silently pretend).
+                        is ShortenerResolver.Result.Interstitial -> {
+                            val web = withContext(Dispatchers.Main) {
+                                AppContainer.shortenerWebResolver.resolve(this@DispatcherActivity, original.toString())
+                            }
+                            if (web != null) finalUrl = web
+                        }
+                        // Loop / MaxHops / Rejected / Error are genuine failures a
+                        // WebView won't safely fix — degrade to the original URL.
+                        else -> { /* degrade to original (D6) */ }
+                    }
                 }
             }
 

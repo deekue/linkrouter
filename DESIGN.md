@@ -82,11 +82,14 @@ app/
 ├── DispatcherActivity.kt          # exported, transparent, ACTION_VIEW http/https
 ├── LauncherActivity.kt            # alias: separate app-icon launcher (not browser role)
 ├── WebViewActivity.kt             # in-app WebView target (REAL private; Compose + AndroidView)
+├── ResolutionWebViewActivity.kt   # M7 ephemeral resolution WebView (no chrome; settles interstitials)
+├── SettleDetector.kt              # M7 pure-JVM "has the page settled?" decision (no android.*)
 ├── rules/
 │   ├── Rule.kt                    # data model
 │   ├── RuleRepository.kt          # Room DAO + ordering
 │   ├── RuleEngine.kt              # parse URL → best rule (specificity scoring)
-│   └── RuleValidator.kt           # pattern/type checks + live match preview
+│   ├── RuleValidator.kt           # pattern/type checks + live match preview
+│   └── ShortenerWebResolver.kt    # M7 WebView fallback: interface + ActivityWebResolver
 ├── browsers/
 │   ├── BrowserRegistry.kt         # discovery via PackageManager (no QUERY_ALL_PACKAGES)
 │   ├── BrowserInfo.kt             # package, label, icon, isPrivateCapable
@@ -237,17 +240,32 @@ default build still makes zero network calls (D7).
   200 body (capped ~64 KB) for `<meta http-equiv=refresh>` /
   `location.replace` / `location.href` → flagged as an interstitial rather
   than resolved.
-- **Graceful degradation (D6):** if resolution fails (interstitial/JS, loop,
-  non-http(s) target, hop limit, network error), the dispatcher falls back to
-  the **ORIGINAL URL** through the normal rule path — it never silently
-  pretends.
-- **Next milestone (NOT implemented):** a WebView fallback that resolves
-  JS/Cloudflare interstitials — an ephemeral resolution WebView that detects
-  settle and returns the final URL (M7).
+- **WebView fallback (M7, implemented):** when the fast path returns
+  `Result.Interstitial`, the dispatcher escalates to an **ephemeral
+  resolution WebView** (`ResolutionWebViewActivity`, a bare `Activity` with no
+  chrome — a *resolution* mechanism, not a browsing experience; distinct from
+  the §7.1 in-app browsing target). It loads the shortener URL, executes JS /
+  follows `<meta>` + JS redirects, and — once the page has **settled** (see
+  `SettleDetector`) — returns the final URL to the dispatcher, which re-runs
+  the rule engine on it and launches it, exactly like the fast path. The
+  settle decision is pure-JVM (`SettleDetector`, unit-testable without a real
+  WebView); the activity only drives it. It is an **overall timeout** (default
+  ~8 s) and, on failure/timeout, returns no URL.
+- **Escalation policy (D6):** the dispatcher escalates **only** on
+  `Result.Interstitial`. `Loop` / `MaxHops` / `Rejected` / `Error` are genuine
+  failures a WebView won't safely fix and are **not** escalated.
+- **Graceful degradation (D6):** if resolution fails (web-resolver null,
+  timeout, loop, non-http(s) target, hop limit, network error), the dispatcher
+  falls back to the **ORIGINAL URL** through the normal rule path — it never
+  silently pretends.
+- **Ephemeral privacy (D6):** on close (success or failure) the resolution
+  WebView clears cookies, HTTP cache and web storage and is destroyed, so the
+  interstitial's session cannot leak into a later real browsing session
+  (mirrors `WebViewActivity.onDestroy` private-mode cleanup).
 - **Permission note (D7/D9):** `INTERNET` is a *normal* (install-granted)
   permission, **not** a runtime permission. It is only exercised when at least
   one shortener host is enabled, and all built-in hosts are disabled by
-  default.
+  default — so a default install still makes zero network calls (honest opt-in).
 
 ---
 
@@ -334,6 +352,13 @@ A built-in target (`WebViewTarget`, sentinel package
   before finishing.
 - **Rule editor:** the target picker shows the WebView first, with a "Built-in
   WebView" label and the REAL private badge.
+
+> **Not the M7 resolution WebView.** The §7.1 in-app target is a *browsing*
+> experience (top bar, back button, user-facing). The M7
+> `ResolutionWebViewActivity` (§6) is a *resolution* mechanism — a bare,
+> chrome-less, ephemeral WebView that exists only to settle a shortener
+> interstitial and return the final URL. They are distinct classes and should
+> not be conflated or reused.
 
 ---
 
@@ -473,21 +498,21 @@ user's chosen mode (default = **System chooser**):
 | **M4** | Polish | JSON import/export; browser-discovery refresh; all fallback modes; Test button; settings. |
 | **M5** | QA & release | Manual matrix green; unit + Robolectric green; Play listing + privacy labels. |
 | **M6** | Shortener resolution — fast path (D9) | `ShortenerResolver` pure-JVM redirect following; `ShortenerHost` opt-in per host (built-ins disabled); dispatcher re-runs the rule engine on the final URL and launches it; graceful degradation to the original URL (D6). **Completed.** |
-| **M7** | Shortener resolution — WebView fallback (D9) | Ephemeral resolution WebView that settles JS/Cloudflare interstitials and returns the final URL. **Future work — NOT implemented.** |
+| **M7** | Shortener resolution — WebView fallback (D9) | Ephemeral resolution WebView (`ResolutionWebViewActivity`) that settles JS/Cloudflare/`<meta refresh>` interstitials and returns the final URL; the pure-JVM settle decision lives in `SettleDetector` (unit-testable, no WebView). The dispatcher escalates **only** on `Result.Interstitial` (not on Loop/MaxHops/Rejected/Error) and degrades to the original URL on failure/timeout (D6). Ephemeral privacy: cookies + cache + web storage cleared and the WebView destroyed on close. **Completed.** |
 
 Build strictly in M1 → M7 order; each milestone must be independently shippable
-and tested before the next begins. (M6 is already complete; M7 is deferred.)
+and tested before the next begins. (M6 and M7 are both complete.)
 
 ---
 
 ## 15. Out of scope (explicit)
 
-- No general in-app browsing experience — the only in-app rendering is the
-  opt-in per-rule WebView target (§7.1), not a full browser.
+- No general in-app browsing experience — the only in-app *browsing* is the
+  opt-in per-rule WebView target (§7.1), not a full browser. (The M7
+  resolution WebView is a **resolution** mechanism, not a browsing
+  experience: it has no chrome and exists only to settle a URL and hand it
+  back.)
 - No network, analytics, or telemetry (D7).
 - No VPN/DNS interception.
 - No multi-profile simultaneous routing (only the active profile's browsers).
 - No account sync (import/export is local JSON only).
-- **WebView interstitial resolver** for JS/Cloudflare shortener interstitials
-  (M7) — deferred; the shortener fast path (M6/D9) degrades such links to the
-  original URL instead (D6).
