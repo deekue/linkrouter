@@ -8,6 +8,7 @@ import com.linkrouter.browsers.BrowserRegistry
 import com.linkrouter.rules.ActivityWebResolver
 import com.linkrouter.rules.LinkRouterDatabase
 import com.linkrouter.rules.RedirectFormatRepository
+import com.linkrouter.rules.QueryParamFilterRepository
 import com.linkrouter.rules.RuleRepository
 import com.linkrouter.rules.ShortenerHostRepository
 import com.linkrouter.rules.ShortenerWebResolver
@@ -22,6 +23,7 @@ object AppContainer {
     lateinit var ruleRepository: RuleRepository
     lateinit var redirectFormatRepository: RedirectFormatRepository
     lateinit var shortenerHostRepository: ShortenerHostRepository
+    lateinit var queryParamFilterRepository: QueryParamFilterRepository
     lateinit var browserRegistry: BrowserRegistry
     lateinit var settings: SettingsStore
 
@@ -47,6 +49,7 @@ object AppContainer {
                     LinkRouterDatabase.MIGRATION_3_4,
                     LinkRouterDatabase.MIGRATION_4_5,
                     LinkRouterDatabase.MIGRATION_5_6,
+                    LinkRouterDatabase.MIGRATION_6_7,
                 )
                 // Real migration (2 -> 3) is primary; destructive is a last-resort
                 // safety net only.
@@ -58,12 +61,14 @@ object AppContainer {
                     override fun onOpen(db: SupportSQLiteDatabase) {
                         ensureBuiltInFormat(db)
                         ensureBuiltInShortenerHosts(db)
+                        ensureBuiltInQueryParamFilters(db)
                     }
                 })
                 .build()
             ruleRepository = RuleRepository(database)
             redirectFormatRepository = RedirectFormatRepository(database)
             shortenerHostRepository = ShortenerHostRepository(database)
+            queryParamFilterRepository = QueryParamFilterRepository(database)
             browserRegistry = BrowserRegistry(app)
             settings = SettingsStore(app)
         }
@@ -116,6 +121,58 @@ object AppContainer {
                         "(id, name, host, pathPrefix, enabled, priority, isBuiltIn) " +
                         "SELECT $id, '$name', '$host', $prefixLiteral, 0, 1000, 1 " +
                         "WHERE NOT EXISTS (SELECT 1 FROM shortener_hosts WHERE host = '$host')"
+                )
+            }
+        } catch (e: Exception) {
+            // Defensive: never let seeding take the app down.
+        }
+    }
+
+    /**
+     * Idempotently guarantee the built-in query-param filters exist. Runs on
+     * every open so fresh installs and migrated installs both end up with them.
+     * All built-ins start ENABLED (M9: param stripping is local and zero
+     * network risk, unlike the shortener hosts). A schema hiccup must not crash
+     * app startup, so failures are swallowed.
+     */
+    private fun ensureBuiltInQueryParamFilters(db: SupportSQLiteDatabase) {
+        // id to (host, param, name) — host is null for global rows, else a
+        // lowercase scope host.
+        val builtIns = listOf(
+            -31L to Triple(null, "utm_source", "utm_source (global)"),
+            -32L to Triple(null, "utm_medium", "utm_medium (global)"),
+            -33L to Triple(null, "utm_campaign", "utm_campaign (global)"),
+            -34L to Triple(null, "utm_term", "utm_term (global)"),
+            -35L to Triple(null, "utm_content", "utm_content (global)"),
+            -36L to Triple(null, "gclid", "gclid (global)"),
+            -37L to Triple(null, "gclsrc", "gclsrc (global)"),
+            -38L to Triple(null, "msclkid", "msclkid (global)"),
+            -39L to Triple(null, "fbclid", "fbclid (global)"),
+            -40L to Triple(null, "fbid", "fbid (global)"),
+            -41L to Triple(null, "sharer_id", "sharer_id (global)"),
+            -42L to Triple(null, "mc_eid", "mc_eid (global)"),
+            -43L to Triple(null, "mc_cid", "mc_cid (global)"),
+            -44L to Triple("tiktok.com", "_t", "_t (TikTok)"),
+            -45L to Triple("instagram.com", "igsi", "igsi (Instagram)"),
+            -46L to Triple("instagram.com", "igshid", "igshid (Instagram)"),
+            -47L to Triple("youtube.com", "si", "si (YouTube)"),
+            -48L to Triple("youtube.com", "feature", "feature (YouTube)"),
+            -49L to Triple("facebook.com", "original_uri", "original_uri (Facebook)"),
+        )
+        try {
+            builtIns.forEach { (id, entry) ->
+                val (host, param, name) = entry
+                val hostLiteral = host?.let { "'$it'" } ?: "NULL"
+                val existsGuard = if (host == null) {
+                    "WHERE NOT EXISTS (SELECT 1 FROM query_param_filters WHERE param = '$param' AND host IS NULL)"
+                } else {
+                    "WHERE NOT EXISTS (SELECT 1 FROM query_param_filters WHERE param = '$param' AND host = '$host')"
+                }
+                db.execSQL(
+                    "INSERT OR IGNORE INTO query_param_filters " +
+                        "(id, name, host, param, enabled, priority, isBuiltIn) " +
+                        "SELECT $id, '$name', $hostLiteral, '$param', 1, 1000, 1 " +
+                        "$existsGuard"
                 )
             }
         } catch (e: Exception) {

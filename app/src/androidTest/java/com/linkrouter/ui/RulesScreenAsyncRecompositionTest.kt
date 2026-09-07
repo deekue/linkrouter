@@ -125,6 +125,8 @@ class RulesScreenAsyncRecompositionTest {
     private class RoomlessDb : com.linkrouter.rules.LinkRouterDatabase() {
         override fun ruleDao(): com.linkrouter.rules.RuleDao = NoopDao
         override fun redirectFormatDao(): com.linkrouter.rules.RedirectFormatDao = NoopFormatDao
+        override fun shortenerHostDao(): com.linkrouter.rules.ShortenerHostDao = NoopShortenerHostDao
+        override fun queryParamFilterDao(): com.linkrouter.rules.QueryParamFilterDao = NoopQueryParamFilterDao
         override fun clearAllTables() {}
         override fun createInvalidationTracker(): androidx.room.InvalidationTracker =
             androidx.room.InvalidationTracker(this, "rules")
@@ -146,6 +148,36 @@ class RulesScreenAsyncRecompositionTest {
             override suspend fun deleteAll() {}
             override suspend fun deleteNonBuiltIn() {}
             override suspend fun builtIns(): List<com.linkrouter.rules.RedirectFormatEntity> = emptyList()
+            override suspend fun count(): Int = 0
+        }
+
+        private object NoopShortenerHostDao : com.linkrouter.rules.ShortenerHostDao {
+            override fun observeAll(): Flow<List<com.linkrouter.rules.ShortenerHostEntity>> =
+                kotlinx.coroutines.flow.emptyFlow()
+            override fun observeEnabled(): Flow<List<com.linkrouter.rules.ShortenerHostEntity>> =
+                kotlinx.coroutines.flow.emptyFlow()
+            override suspend fun all(): List<com.linkrouter.rules.ShortenerHostEntity> = emptyList()
+            override suspend fun allEnabled(): List<com.linkrouter.rules.ShortenerHostEntity> = emptyList()
+            override suspend fun upsert(entity: com.linkrouter.rules.ShortenerHostEntity): Long = 0L
+            override suspend fun update(entity: com.linkrouter.rules.ShortenerHostEntity) {}
+            override suspend fun deleteById(id: Long) {}
+            override suspend fun deleteNonBuiltIn() {}
+            override suspend fun builtIns(): List<com.linkrouter.rules.ShortenerHostEntity> = emptyList()
+            override suspend fun count(): Int = 0
+        }
+
+        private object NoopQueryParamFilterDao : com.linkrouter.rules.QueryParamFilterDao {
+            override fun observeAll(): Flow<List<com.linkrouter.rules.QueryParamFilterEntity>> =
+                kotlinx.coroutines.flow.emptyFlow()
+            override fun observeEnabled(): Flow<List<com.linkrouter.rules.QueryParamFilterEntity>> =
+                kotlinx.coroutines.flow.emptyFlow()
+            override suspend fun all(): List<com.linkrouter.rules.QueryParamFilterEntity> = emptyList()
+            override suspend fun allEnabled(): List<com.linkrouter.rules.QueryParamFilterEntity> = emptyList()
+            override suspend fun upsert(entity: com.linkrouter.rules.QueryParamFilterEntity): Long = 0L
+            override suspend fun update(entity: com.linkrouter.rules.QueryParamFilterEntity) {}
+            override suspend fun deleteById(id: Long) {}
+            override suspend fun deleteNonBuiltIn() {}
+            override suspend fun builtIns(): List<com.linkrouter.rules.QueryParamFilterEntity> = emptyList()
             override suspend fun count(): Int = 0
         }
 

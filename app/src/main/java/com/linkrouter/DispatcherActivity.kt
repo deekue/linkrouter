@@ -10,6 +10,7 @@ import com.linkrouter.browsers.BrowserRegistry
 import com.linkrouter.browsers.StrategyTable
 import com.linkrouter.browsers.WebViewTarget
 import com.linkrouter.fallback.FallbackHandler
+import com.linkrouter.rules.QueryParamStripper
 import com.linkrouter.rules.RedirectResolver
 import com.linkrouter.rules.Rule
 import com.linkrouter.rules.RuleEngine
@@ -32,6 +33,7 @@ class DispatcherActivity : Activity() {
     private lateinit var repo: RuleRepository
     private lateinit var redirectRepo: com.linkrouter.rules.RedirectFormatRepository
     private lateinit var shortenerRepo: com.linkrouter.rules.ShortenerHostRepository
+    private lateinit var paramFilterRepo: com.linkrouter.rules.QueryParamFilterRepository
     private lateinit var registry: BrowserRegistry
     private lateinit var settings: SettingsStore
     private val dispatchScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -42,6 +44,7 @@ class DispatcherActivity : Activity() {
         repo = AppContainer.get(this).ruleRepository
         redirectRepo = AppContainer.get(this).redirectFormatRepository
         shortenerRepo = AppContainer.get(this).shortenerHostRepository
+        paramFilterRepo = AppContainer.get(this).queryParamFilterRepository
         registry = AppContainer.get(this).browserRegistry
         settings = AppContainer.get(this).settings
 
@@ -82,8 +85,19 @@ class DispatcherActivity : Activity() {
             // 2. MATCH against enabled rules (in priority order), using the
             // user-managed redirect formats to resolve the wrapper to its
             // destination for RULE MATCHING only (we still launch the original).
-            val (rules, formats, shortenerHosts) = withContext(Dispatchers.IO) {
-                Triple(repo.all(), redirectRepo.allEnabled(), shortenerRepo.allEnabled())
+            data class Loaded(
+                val rules: List<Rule>,
+                val formats: List<com.linkrouter.rules.RedirectFormat>,
+                val shortenerHosts: List<com.linkrouter.rules.ShortenerHost>,
+                val paramFilters: List<com.linkrouter.rules.QueryParamFilter>,
+            )
+            val (rules, formats, shortenerHosts, paramFilters) = withContext(Dispatchers.IO) {
+                Loaded(
+                    repo.all(),
+                    redirectRepo.allEnabled(),
+                    shortenerRepo.allEnabled(),
+                    paramFilterRepo.allEnabled(),
+                )
             }
 
             // D9 shortener resolution: if the incoming host is an enabled shortener host,
@@ -130,7 +144,10 @@ class DispatcherActivity : Activity() {
             // Launch the shortener's final URL when resolved; otherwise honor the existing
             // openRealDestination logic on the original wrapper.
             val launchUrl = finalUrl ?: RedirectResolver.launchDestination(original.toString(), formats)
-            val launchUri = Uri.parse(launchUrl)
+
+            // M9: strip enabled tracking params from the URL we LAUNCH (never
+            // from matchUrl — rule matching stays query-independent, DESIGN.md §6/M9).
+            val launchUri = Uri.parse(QueryParamStripper.strip(launchUrl, paramFilters))
 
             // 3. RESOLVE TARGET + LAUNCH
             if (rule == null) {

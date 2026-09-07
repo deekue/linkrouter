@@ -44,6 +44,7 @@ class DispatcherActivityTest {
         override fun ruleDao(): com.linkrouter.rules.RuleDao = NoopDao
         override fun redirectFormatDao(): com.linkrouter.rules.RedirectFormatDao = NoopFormatDao
         override fun shortenerHostDao(): com.linkrouter.rules.ShortenerHostDao = NoopShortenerHostDao
+        override fun queryParamFilterDao(): com.linkrouter.rules.QueryParamFilterDao = NoopQueryParamFilterDao
         override fun clearAllTables() {}
         override fun createInvalidationTracker(): androidx.room.InvalidationTracker =
             androidx.room.InvalidationTracker(this, "rules")
@@ -80,6 +81,21 @@ class DispatcherActivityTest {
             override suspend fun deleteById(id: Long) {}
             override suspend fun deleteNonBuiltIn() {}
             override suspend fun builtIns(): List<com.linkrouter.rules.ShortenerHostEntity> = emptyList()
+            override suspend fun count(): Int = 0
+        }
+
+        private object NoopQueryParamFilterDao : com.linkrouter.rules.QueryParamFilterDao {
+            override fun observeAll(): kotlinx.coroutines.flow.Flow<List<com.linkrouter.rules.QueryParamFilterEntity>> =
+                kotlinx.coroutines.flow.emptyFlow()
+            override fun observeEnabled(): kotlinx.coroutines.flow.Flow<List<com.linkrouter.rules.QueryParamFilterEntity>> =
+                kotlinx.coroutines.flow.emptyFlow()
+            override suspend fun all(): List<com.linkrouter.rules.QueryParamFilterEntity> = emptyList()
+            override suspend fun allEnabled(): List<com.linkrouter.rules.QueryParamFilterEntity> = emptyList()
+            override suspend fun upsert(entity: com.linkrouter.rules.QueryParamFilterEntity): Long = 0L
+            override suspend fun update(entity: com.linkrouter.rules.QueryParamFilterEntity) {}
+            override suspend fun deleteById(id: Long) {}
+            override suspend fun deleteNonBuiltIn() {}
+            override suspend fun builtIns(): List<com.linkrouter.rules.QueryParamFilterEntity> = emptyList()
             override suspend fun count(): Int = 0
         }
 
@@ -120,6 +136,10 @@ class DispatcherActivityTest {
 
     private class FakeShortenerRepo(private val hosts: List<com.linkrouter.rules.ShortenerHost>) : com.linkrouter.rules.ShortenerHostRepository(RoomlessDb()) {
         override suspend fun allEnabled(): List<com.linkrouter.rules.ShortenerHost> = hosts
+    }
+
+    private class FakeParamFilterRepo(private val filters: List<com.linkrouter.rules.QueryParamFilter>) : com.linkrouter.rules.QueryParamFilterRepository(RoomlessDb()) {
+        override suspend fun allEnabled(): List<com.linkrouter.rules.QueryParamFilter> = filters
     }
 
     /**
@@ -195,6 +215,8 @@ class DispatcherActivityTest {
         AppContainer.ruleRepository = FakeRepository(emptyList())
         AppContainer.redirectFormatRepository = FakeFormatRepository(emptyList())
         AppContainer.shortenerHostRepository = FakeShortenerRepo(emptyList())
+        // M9 default: no filters → no stripping, so existing tests are unchanged.
+        AppContainer.queryParamFilterRepository = FakeParamFilterRepo(emptyList())
         // Safe default: no-redirect fake fetcher so no test ever hits the real
         // network (no shortener host is enabled by default in the fake repo).
         AppContainer.shortenerFetcher = ShortenerResolver.Fetcher { _ -> ShortenerResolver.HopResponse(200, null, "") }
@@ -460,6 +482,47 @@ class DispatcherActivityTest {
         val started = startedActivities(activity).single()
         assertEquals("org.example.browser", started.`package`)
         assertEquals(Uri.parse("https://example.com/page"), started.data)
+    }
+
+    // --- url param cleanup (M9) ---
+
+    @Test
+    fun `enabled param filter strips global tracking param from launched url`() {
+        AppContainer.ruleRepository = FakeRepository(listOf(rule("org.example.browser"))) // pattern example.com
+        AppContainer.queryParamFilterRepository = FakeParamFilterRepo(listOf(
+            com.linkrouter.rules.QueryParamFilter(
+                id = -31, name = "utm_source (global)", host = null, param = "utm_source",
+                enabled = true, priority = 1000, isBuiltIn = true,
+            )
+        ))
+        AppContainer.browserRegistry = FakeRegistry(context(), browser("org.example.browser"))
+
+        val activity = build("https://example.com/page?utm_source=news&id=42")
+        settle(activity)
+
+        val started = startedActivities(activity).single()
+        assertEquals("org.example.browser", started.`package`)
+        // utm_source stripped, id kept.
+        assertEquals(Uri.parse("https://example.com/page?id=42"), started.data)
+        assertTrue(started.getBooleanExtra(LinkRouter.EXTRA_HANDLED, false))
+    }
+
+    @Test
+    fun `scoped param filter does not strip on a different domain`() {
+        AppContainer.ruleRepository = FakeRepository(listOf(rule("org.example.browser")))
+        AppContainer.queryParamFilterRepository = FakeParamFilterRepo(listOf(
+            com.linkrouter.rules.QueryParamFilter(
+                id = -44, name = "_t (TikTok)", host = "tiktok.com", param = "_t",
+                enabled = true, priority = 1000, isBuiltIn = true,
+            )
+        ))
+        AppContainer.browserRegistry = FakeRegistry(context(), browser("org.example.browser"))
+
+        val activity = build("https://example.com/page?_t=8")
+        settle(activity)
+
+        val started = startedActivities(activity).single()
+        assertEquals(Uri.parse("https://example.com/page?_t=8"), started.data)
     }
 
     @Test

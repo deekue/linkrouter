@@ -7,8 +7,8 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [RuleEntity::class, RedirectFormatEntity::class, ShortenerHostEntity::class],
-    version = 6,
+    entities = [RuleEntity::class, RedirectFormatEntity::class, ShortenerHostEntity::class, QueryParamFilterEntity::class],
+    version = 7,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -16,6 +16,7 @@ abstract class LinkRouterDatabase : RoomDatabase() {
     abstract fun ruleDao(): RuleDao
     abstract fun redirectFormatDao(): RedirectFormatDao
     abstract fun shortenerHostDao(): ShortenerHostDao
+    abstract fun queryParamFilterDao(): QueryParamFilterDao
 
     companion object {
         /**
@@ -90,6 +91,30 @@ abstract class LinkRouterDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL(
                     "ALTER TABLE shortener_hosts ADD COLUMN pathPrefix TEXT"
+                )
+            }
+        }
+
+        /**
+         * v6 -> v7: add the `query_param_filters` table. Column names/types must
+         * match Room's annotation-generated schema EXACTLY (Kotlin property
+         * names as-is; boolean -> INTEGER).
+         */
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `query_param_filters` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`name` TEXT NOT NULL, " +
+                        "`host` TEXT, " +
+                        "`param` TEXT NOT NULL, " +
+                        "`enabled` INTEGER NOT NULL, " +
+                        "`priority` INTEGER NOT NULL, " +
+                        "`isBuiltIn` INTEGER NOT NULL)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_query_param_filters_enabled_priority " +
+                        "ON query_param_filters (enabled, priority)"
                 )
             }
         }

@@ -8,7 +8,7 @@
 > default → zero network).
 
 This document is the source of truth for a build agent. Follow it in the
-milestone order (M1 → M8). Where a decision is listed under "Locked decisions"
+milestone order (M1 → M9). Where a decision is listed under "Locked decisions"
 it is final — do not re-litigate it.
 
 ---
@@ -276,7 +276,51 @@ default build still makes zero network calls (D7).
 - **Permission note (D7/D9):** `INTERNET` is a *normal* (install-granted)
   permission, **not** a runtime permission. It is only exercised when at least
   one shortener host is enabled, and all built-in hosts are disabled by
-  default — so a default install still makes zero network calls (honest opt-in).
+   default — so a default install still makes zero network calls (honest opt-in).
+
+### URL param cleanup (M9)
+
+After the dispatcher has resolved the **final** URL (post shortener / redirect
+resolution, §6) and is about to launch it, it strips a user-managed set of
+tracking / attribution query params **from that final URL only**. Rule matching
+(§5) is deliberately **untouched** — matching stays query-independent; the
+stripping is a launch-time cleanup, not part of the match.
+
+- **What:** a user-managed list of query-param filters. Each row =
+  (`domain?`, `paramName`). `domain = NULL` ⇒ **global** (any domain); otherwise
+  scoped to that domain **and its subdomains**, using the same domain-matching
+  rules as shortener hosts (`ShortenerMatcher.domainMatches`, §6).
+- **When it applies:** **only** to the URL the dispatcher **launches** — the
+  final URL after shortener/redirect resolution. The loop-guard check, rule
+  matching, and shortener/redirect resolution are all unaffected.
+- **Behavior:** pure-JVM `QueryParamStripper.strip(url, enabledFilters)`
+  rebuilds the URL **string-level**: it preserves scheme / authority / path /
+  fragment, the **order** of the surviving params, and the **raw
+  percent-encoding** of every kept param. Non-web (non-http/https) or
+  query-less URLs, and the no-match case, return the input **unchanged** (D6:
+  never silently pretend / degrade safely). Matching is **case-insensitive** on
+  the param key; values are **never** inspected.
+- **Built-ins (enabled by default, local, zero network risk):**
+  - **Global:** `utm_source`, `utm_medium`, `utm_campaign`, `utm_term`,
+    `utm_content`, `gclid`, `gclsrc`, `msclkid`, `fbclid`, `fbid`, `sharer_id`,
+    `mc_eid`, `mc_cid`.
+  - **Scoped (domain → params):** `tiktok.com` → `_t`;
+    `instagram.com` → `igsi`, `igshid`; `youtube.com` → `si`, `feature`;
+    `facebook.com` → `original_uri`.
+  - Internal IDs occupy **-31..-49** (negative IDs mark the built-in rows, like
+    the other built-ins).
+- **Built-in protection:** **delete ⇒ disable**; **update ⇒ only the `enabled`
+  flag is mutable** (mirrors the shortener-host and redirect-format built-in
+  rules). The domain / param of a built-in row cannot be edited.
+- **Persistence:** a dedicated `query_param_filters` table (Room entity,
+  **DB v7 — `MIGRATION_6_7`**), kept **separate from routing rules**: a filter
+  is a launch-time cleanup flag, not a routing decision.
+- **Internal guard:** the loop-guard param `__lr` (§2) is **never** stripped,
+  regardless of any (user or built-in) filter.
+
+> Param cleanup touches **only** the outbound launch URL. It makes no network
+> calls, reads no remote data, and changes neither the rule match nor the
+> shortener / redirect resolution.
 
 ---
 
@@ -511,9 +555,10 @@ user's chosen mode (default = **System chooser**):
 | **M6** | Shortener resolution — fast path (D9) | `ShortenerResolver` pure-JVM redirect following; `ShortenerHost` opt-in per host (built-ins disabled); dispatcher re-runs the rule engine on the final URL and launches it; graceful degradation to the original URL (D6). **Completed.** |
 | **M7** | Shortener resolution — WebView fallback (D9) | Ephemeral resolution WebView (`ResolutionWebViewActivity`) that settles JS/Cloudflare/`<meta refresh>` interstitials and returns the final URL; the pure-JVM settle decision lives in `SettleDetector` (unit-testable, no WebView). The dispatcher escalates **only** on `Result.Interstitial` (not on Loop/MaxHops/Rejected/Error) and degrades to the original URL on failure/timeout (D6). Ephemeral privacy: cookies + cache + web storage cleared and the WebView destroyed on close. **Completed.** |
 | **M8** | Path-prefix shortener hosts (D9) | Optional `pathPrefix` on `ShortenerHost` (`NULL` = host-only, back-compat; non-null = the incoming short link's path must start with the prefix, case-insensitive, registrable-domain host match); pure-JVM `ShortenerMatcher`; two new **disabled** built-ins (`www.tiktok.com` + `/t/`, `www.facebook.com` + `/share/r/`). **Completed.** |
+| **M9** | URL param cleanup | Pure-JVM `QueryParamStripper.strip(url, enabledFilters)` strips user-managed + built-in tracking params from the **final launched URL** only (scheme/authority/path/fragment, param order, and raw percent-encoding of kept params preserved; non-web / query-less / no-match unchanged, D6); case-insensitive key match, values never inspected; `__lr` never stripped. Dedicated `query_param_filters` table (**DB v7 — `MIGRATION_6_7`**), separate from routing rules; built-ins use negative IDs **-31..-49** with delete ⇒ disable / update ⇒ enabled-only. Matching and shortener/redirect resolution are untouched. **Completed.** |
 
-Build strictly in M1 → M8 order; each milestone must be independently shippable
-and tested before the next begins. (M6, M7 and M8 are complete.)
+Build strictly in M1 → M9 order; each milestone must be independently shippable
+and tested before the next begins. (M6, M7, M8 and M9 are complete.)
 
 ---
 
@@ -528,3 +573,7 @@ and tested before the next begins. (M6, M7 and M8 are complete.)
 - No VPN/DNS interception.
 - No multi-profile simultaneous routing (only the active profile's browsers).
 - No account sync (import/export is local JSON only).
+- Param filters are **launch-time cleanup only**: they never affect rule
+  matching (matching stays query-independent), never affect shortener/redirect
+  resolution, and never strip params from a non-launched URL (they touch only
+  the final URL the dispatcher launches, §6 / M9).
