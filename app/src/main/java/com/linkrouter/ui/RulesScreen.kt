@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PrivateConnectivity
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Web
 import com.linkrouter.browsers.WebViewTarget
 import androidx.compose.material3.Button
@@ -72,6 +73,7 @@ fun RulesScreen(
     onOpenDefaultBrowserPrompt: () -> Unit,
     onOpenRedirects: () -> Unit,
     onOpenShorteners: () -> Unit,
+    onOpenParamFilters: () -> Unit,
 ) {
     var showEditor by rememberSaveable { mutableStateOf(false) }
     var editingRule by remember { mutableStateOf<Rule?>(null) }
@@ -92,6 +94,9 @@ fun RulesScreen(
                     }
                     IconButton(onClick = onOpenShorteners) {
                         Icon(Icons.Filled.Public, contentDescription = context.getString(com.linkrouter.R.string.shorteners_title))
+                    }
+                    IconButton(onClick = onOpenParamFilters) {
+                        Icon(Icons.Filled.Tune, contentDescription = context.getString(com.linkrouter.R.string.param_filters_title))
                     }
                     IconButton(onClick = onOpenSettings) {
                         Icon(Icons.Filled.Settings, contentDescription = "Settings")

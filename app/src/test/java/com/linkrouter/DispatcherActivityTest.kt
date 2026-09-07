@@ -508,6 +508,39 @@ class DispatcherActivityTest {
     }
 
     @Test
+    fun `scoped param filter strips on a matching domain`() {
+        // Rule matches the launched host (www.tiktok.com); the scoped filter
+        // (host = "tiktok.com") must apply to that subdomain.
+        AppContainer.ruleRepository = FakeRepository(listOf(
+            Rule(
+                id = 1,
+                pattern = "www.tiktok.com",
+                matchType = com.linkrouter.rules.MatchType.EXACT_HOST,
+                targetPackage = "org.example.browser",
+                openMode = OpenMode.NORMAL,
+                enabled = true,
+                priority = 1,
+            )
+        ))
+        AppContainer.queryParamFilterRepository = FakeParamFilterRepo(listOf(
+            com.linkrouter.rules.QueryParamFilter(
+                id = -44, name = "_t (TikTok)", host = "tiktok.com", param = "_t",
+                enabled = true, priority = 1000, isBuiltIn = true,
+            )
+        ))
+        AppContainer.browserRegistry = FakeRegistry(context(), browser("org.example.browser"))
+
+        val activity = build("https://www.tiktok.com/video?_t=8&id=42")
+        settle(activity)
+
+        val started = startedActivities(activity).single()
+        assertEquals("org.example.browser", started.`package`)
+        // _t stripped (subdomain of the scoped host), id kept.
+        assertEquals(Uri.parse("https://www.tiktok.com/video?id=42"), started.data)
+        assertTrue(started.getBooleanExtra(LinkRouter.EXTRA_HANDLED, false))
+    }
+
+    @Test
     fun `scoped param filter does not strip on a different domain`() {
         AppContainer.ruleRepository = FakeRepository(listOf(rule("org.example.browser")))
         AppContainer.queryParamFilterRepository = FakeParamFilterRepo(listOf(

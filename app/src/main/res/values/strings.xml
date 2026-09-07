@@ -80,4 +80,13 @@
     <string name="add_shortener_host">Add shortener host</string>
     <string name="shortener_host">Host (e.g. t.co, www.tiktok.com)</string>
     <string name="shortener_path_prefix">Path prefix (optional, e.g. /t/)</string>
+
+    <!-- Query-param filters -->
+    <string name="param_filters_title">Param filters</string>
+    <string name="param_filters_body">When enabled, LinkRouter strips these query params from the URL it opens. A host scope limits the filter to that domain and its subdomains; empty applies to all domains.</string>
+    <string name="add_param_filter">Add filter</string>
+    <string name="edit_param_filter">Edit filter</string>
+    <string name="param_filter_param">Param name (e.g. utm_source)</string>
+    <string name="param_filter_host">Host scope (optional, e.g. tiktok.com; empty = all domains)</string>
+    <string name="param_filter_all_domains">All domains</string>
 </resources>

@@ -30,6 +30,8 @@ data class RedirectFormatRow(
 
 data class ShortenerHostRow(val host: com.linkrouter.rules.ShortenerHost)
 
+data class QueryParamFilterRow(val filter: com.linkrouter.rules.QueryParamFilter)
+
 class RulesViewModel(app: Application) : AndroidViewModel(app) {
 
     private val container = AppContainer.get(app)
@@ -38,6 +40,7 @@ class RulesViewModel(app: Application) : AndroidViewModel(app) {
     private val settings = container.settings
     private val fmtRepo = container.redirectFormatRepository
     private val shortenerRepo = container.shortenerHostRepository
+    private val paramFilterRepo = container.queryParamFilterRepository
 
     val browsers by lazy { registry.browsers }
 
@@ -67,6 +70,9 @@ class RulesViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _shortenerHosts = mutableStateOf<List<ShortenerHostRow>>(emptyList())
     val shortenerHosts: List<ShortenerHostRow> get() = _shortenerHosts.value
+
+    private val _queryParamFilters = mutableStateOf<List<QueryParamFilterRow>>(emptyList())
+    val queryParamFilters: List<QueryParamFilterRow> get() = _queryParamFilters.value
 
     init {
         viewModelScope.launch {
@@ -99,6 +105,11 @@ class RulesViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             container.shortenerHostRepository.observeAll().collect { list ->
                 _shortenerHosts.value = list.map { ShortenerHostRow(it) }
+            }
+        }
+        viewModelScope.launch {
+            container.queryParamFilterRepository.observeAll().collect { list ->
+                _queryParamFilters.value = list.map { QueryParamFilterRow(it) }
             }
         }
     }
@@ -235,6 +246,34 @@ class RulesViewModel(app: Application) : AndroidViewModel(app) {
 
     fun deleteShortenerHost(id: Long) {
         viewModelScope.launch { shortenerRepo.delete(id) }
+    }
+
+    fun addQueryParamFilter(param: String, host: String? = null) {
+        viewModelScope.launch {
+            val h = host?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }
+            paramFilterRepo.insert(
+                com.linkrouter.rules.QueryParamFilter(
+                    id = 0,
+                    name = param.trim(),
+                    host = h,
+                    param = param.trim().lowercase(),
+                    enabled = true,
+                    isBuiltIn = false,
+                )
+            )
+        }
+    }
+
+    fun updateQueryParamFilter(filter: com.linkrouter.rules.QueryParamFilter) {
+        viewModelScope.launch { paramFilterRepo.update(filter) }
+    }
+
+    fun setQueryParamFilterEnabled(id: Long, enabled: Boolean) {
+        viewModelScope.launch { paramFilterRepo.setEnabled(id, enabled) }
+    }
+
+    fun deleteQueryParamFilter(id: Long) {
+        viewModelScope.launch { paramFilterRepo.delete(id) }
     }
 
     fun importFormats(formats: List<RedirectFormat>) {
