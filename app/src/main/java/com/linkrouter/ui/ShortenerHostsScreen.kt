@@ -103,8 +103,8 @@ fun ShortenerHostsScreen(
 
     if (showAdd) {
         ShortenerHostAddDialog(
-            onSave = { name, host ->
-                vm.addShortenerHost(name, host)
+            onSave = { name, host, pathPrefix ->
+                vm.addShortenerHost(name, host, pathPrefix)
                 showAdd = false
             },
             onDismiss = { showAdd = false },
@@ -157,7 +157,7 @@ private fun ShortenerHostRowItem(
             }
             Spacer(Modifier.size(2.dp))
             Text(
-                text = host.host,
+                text = host.host + (host.pathPrefix ?: ""),
                 style = MaterialTheme.typography.bodySmall,
                 color = if (host.enabled) MaterialTheme.colorScheme.onSurfaceVariant
                 else MaterialTheme.colorScheme.error,
@@ -178,11 +178,12 @@ private fun ShortenerHostRowItem(
 
 @Composable
 private fun ShortenerHostAddDialog(
-    onSave: (name: String, host: String) -> Unit,
+    onSave: (name: String, host: String, pathPrefix: String?) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var name by remember { mutableStateOf("") }
     var host by remember { mutableStateOf("") }
+    var pathPrefix by remember { mutableStateOf("") }
 
     val context = LocalContext.current
     AlertDialog(
@@ -203,11 +204,18 @@ private fun ShortenerHostAddDialog(
                     label = { Text(context.getString(com.linkrouter.R.string.shortener_host)) },
                     singleLine = true,
                 )
+                Spacer(Modifier.size(8.dp))
+                OutlinedTextField(
+                    value = pathPrefix,
+                    onValueChange = { pathPrefix = it },
+                    label = { Text(context.getString(com.linkrouter.R.string.shortener_path_prefix)) },
+                    singleLine = true,
+                )
             }
         },
         confirmButton = {
             TextButton(
-                onClick = { onSave(name, host) },
+                onClick = { onSave(name, host, pathPrefix.takeIf { it.isNotBlank() }) },
                 enabled = name.isNotBlank() && host.isNotBlank(),
             ) { Text("Add") }
         },

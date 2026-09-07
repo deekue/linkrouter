@@ -46,6 +46,7 @@ object AppContainer {
                     LinkRouterDatabase.MIGRATION_2_3,
                     LinkRouterDatabase.MIGRATION_3_4,
                     LinkRouterDatabase.MIGRATION_4_5,
+                    LinkRouterDatabase.MIGRATION_5_6,
                 )
                 // Real migration (2 -> 3) is primary; destructive is a last-resort
                 // safety net only.
@@ -94,20 +95,26 @@ object AppContainer {
      * A schema hiccup must not crash app startup, so failures are swallowed.
      */
     private fun ensureBuiltInShortenerHosts(db: SupportSQLiteDatabase) {
+        // Triple of (host, name, pathPrefix) — pathPrefix is null for host-only
+        // rows (existing built-ins are unchanged: name == host).
         val builtIns = listOf(
-            -21L to "t.co",
-            -22L to "bit.ly",
-            -23L to "is.gd",
-            -24L to "tinyurl.com",
-            -25L to "ow.ly",
-            -26L to "buff.ly",
+            -21L to Triple("t.co", "t.co", null),
+            -22L to Triple("bit.ly", "bit.ly", null),
+            -23L to Triple("is.gd", "is.gd", null),
+            -24L to Triple("tinyurl.com", "tinyurl.com", null),
+            -25L to Triple("ow.ly", "ow.ly", null),
+            -26L to Triple("buff.ly", "buff.ly", null),
+            -27L to Triple("www.tiktok.com", "TikTok short links", "/t/"),
+            -28L to Triple("www.facebook.com", "Facebook share links", "/share/r/"),
         )
         try {
-            builtIns.forEach { (id, host) ->
+            builtIns.forEach { (id, entry) ->
+                val (host, name, pathPrefix) = entry
+                val prefixLiteral = pathPrefix?.let { "'$it'" } ?: "NULL"
                 db.execSQL(
                     "INSERT OR IGNORE INTO shortener_hosts " +
-                        "(id, name, host, enabled, priority, isBuiltIn) " +
-                        "SELECT $id, '$host', '$host', 0, 1000, 1 " +
+                        "(id, name, host, pathPrefix, enabled, priority, isBuiltIn) " +
+                        "SELECT $id, '$name', '$host', $prefixLiteral, 0, 1000, 1 " +
                         "WHERE NOT EXISTS (SELECT 1 FROM shortener_hosts WHERE host = '$host')"
                 )
             }

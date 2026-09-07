@@ -10,6 +10,7 @@ data class ShortenerHost(
     val id: Long,
     val name: String,
     val host: String,          // lowercase host, no scheme (e.g. "t.co")
+    val pathPrefix: String? = null, // null = host-only; else path prefix, e.g. "/t/"
     val enabled: Boolean = false,
     val priority: Int = 0,
     val isBuiltIn: Boolean = false,

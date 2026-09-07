@@ -78,5 +78,6 @@
     <string name="shorteners_title">Shortener hosts</string>
     <string name="shorteners_body">When enabled, LinkRouter follows these shorteners\' redirects to the real destination, matches your rules on it, and opens it. Disabled by default — no network.</string>
     <string name="add_shortener_host">Add shortener host</string>
-    <string name="shortener_host">Host (e.g. t.co)</string>
+    <string name="shortener_host">Host (e.g. t.co, www.tiktok.com)</string>
+    <string name="shortener_path_prefix">Path prefix (optional, e.g. /t/)</string>
 </resources>

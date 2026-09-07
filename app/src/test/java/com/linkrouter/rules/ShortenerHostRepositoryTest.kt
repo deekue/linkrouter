@@ -21,15 +21,21 @@ class ShortenerHostRepositoryTest {
     private lateinit var db: LinkRouterDatabase
     private lateinit var repo: ShortenerHostRepository
 
-    private fun host(host: String, name: String = "H", enabled: Boolean = false, isBuiltIn: Boolean = false) =
-        ShortenerHost(
-            id = 0,
-            name = name,
-            host = host,
-            enabled = enabled,
-            priority = 0,
-            isBuiltIn = isBuiltIn,
-        )
+    private fun host(
+        host: String,
+        name: String = "H",
+        pathPrefix: String? = null,
+        enabled: Boolean = false,
+        isBuiltIn: Boolean = false,
+    ) = ShortenerHost(
+        id = 0,
+        name = name,
+        host = host,
+        pathPrefix = pathPrefix,
+        enabled = enabled,
+        priority = 0,
+        isBuiltIn = isBuiltIn,
+    )
 
     @Before
     fun setUp() {
@@ -121,6 +127,35 @@ class ShortenerHostRepositoryTest {
 
         val b = repo.all().single { it.isBuiltIn }
         assertEquals("only the enabled flag is editable on a built-in", "t.co", b.host)
+        assertEquals(true, b.enabled)
+        assertEquals(builtInId, b.id)
+    }
+
+    @Test
+    fun insert_with_pathPrefix_round_trips() = runBlocking {
+        val id = repo.insert(host("www.tiktok.com", pathPrefix = "/t/"))
+
+        val h = repo.all().single { it.id == id }
+        assertEquals("/t/", h.pathPrefix)
+    }
+
+    @Test
+    fun insert_without_pathPrefix_defaults_to_null() = runBlocking {
+        val id = repo.insert(host("t.co"))
+
+        val h = repo.all().single { it.id == id }
+        assertEquals(null, h.pathPrefix)
+    }
+
+    @Test
+    fun update_builtin_preserves_pathPrefix() = runBlocking {
+        val builtInId = repo.insert(host("www.tiktok.com", pathPrefix = "/t/", isBuiltIn = true))
+        val current = repo.all().single { it.isBuiltIn }
+
+        repo.update(current.copy(enabled = true, pathPrefix = "/x/"))
+
+        val b = repo.all().single { it.isBuiltIn }
+        assertEquals("built-in prefix is not editable", "/t/", b.pathPrefix)
         assertEquals(true, b.enabled)
         assertEquals(builtInId, b.id)
     }

@@ -8,7 +8,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [RuleEntity::class, RedirectFormatEntity::class, ShortenerHostEntity::class],
-    version = 5,
+    version = 6,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -77,6 +77,19 @@ abstract class LinkRouterDatabase : RoomDatabase() {
                 db.execSQL(
                     "CREATE INDEX IF NOT EXISTS index_shortener_hosts_enabled_priority " +
                         "ON shortener_hosts (enabled, priority)"
+                )
+            }
+        }
+
+        /**
+         * v5 -> v6: add the optional `pathPrefix` column to `shortener_hosts`.
+         * Nullable with no default: existing rows read as NULL = host-only.
+         * Column name must match the Kotlin property name Room expects.
+         */
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE shortener_hosts ADD COLUMN pathPrefix TEXT"
                 )
             }
         }

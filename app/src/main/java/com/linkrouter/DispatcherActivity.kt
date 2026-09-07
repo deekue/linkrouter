@@ -14,6 +14,7 @@ import com.linkrouter.rules.RedirectResolver
 import com.linkrouter.rules.Rule
 import com.linkrouter.rules.RuleEngine
 import com.linkrouter.rules.RuleRepository
+import com.linkrouter.rules.ShortenerMatcher
 import com.linkrouter.settings.SettingsStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -91,9 +92,8 @@ class DispatcherActivity : Activity() {
             // gracefully to the original URL (D6: never silently pretend).
             var finalUrl: String? = null
             if (shortenerHosts.isNotEmpty()) {
-                val host = parsed.host.lowercase()
                 val isShortener = shortenerHosts.any {
-                    host == it.host.lowercase() || host.endsWith("." + it.host.lowercase())
+                    ShortenerMatcher.matches(parsed.host, parsed.path, it)
                 }
                 if (isShortener) {
                     val result = withContext(Dispatchers.IO) {

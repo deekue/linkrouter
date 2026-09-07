@@ -373,6 +373,95 @@ class DispatcherActivityTest {
         assertEquals(Uri.parse("https://t.co/abc"), started.getParcelableExtra(LinkRouter.EXTRA_URI))
     }
 
+    // --- path-prefix shortener hosts (M8) ---
+
+    @Test
+    fun `path-prefix row matches subdomain with prefix and launches final url`() {
+        // Rule targets the FINAL url's host (example.com), not the tiktok wrapper.
+        AppContainer.ruleRepository = FakeRepository(listOf(rule("org.example.browser")))
+        AppContainer.shortenerHostRepository = FakeShortenerRepo(listOf(
+            com.linkrouter.rules.ShortenerHost(
+                id = 27, name = "TikTok short links", host = "www.tiktok.com",
+                pathPrefix = "/t/", enabled = true, isBuiltIn = true,
+            )
+        ))
+        // Recording fetcher: proves the resolver was consulted (and only for
+        // the incoming short link on a matching path).
+        val fetchCalls = mutableListOf<String>()
+        AppContainer.shortenerFetcher = ShortenerResolver.Fetcher { url ->
+            fetchCalls.add(url)
+            if (url == "https://vm.tiktok.com/t/ZG123/") ShortenerResolver.HopResponse(302, "https://example.com/page", "")
+            else ShortenerResolver.HopResponse(200, null, "")
+        }
+        AppContainer.browserRegistry = FakeRegistry(context(), browser("org.example.browser"))
+
+        // Subdomain (vm.) + path prefix /t/ → matches the www.tiktok.com + /t/ row.
+        val activity = build("https://vm.tiktok.com/t/ZG123/")
+        settle(activity)
+
+        // The short link itself was resolved by the shortener fast path.
+        // (The final URL may also be probed later by RedirectResolver for rule
+        // matching — that's the pre-existing wrapper-resolution behavior.)
+        assertTrue("resolver should be consulted on the short link",
+            fetchCalls.firstOrNull() == "https://vm.tiktok.com/t/ZG123/")
+        val started = startedActivities(activity).single()
+        assertEquals("org.example.browser", started.`package`)
+        // The FINAL url must be launched (not the tiktok wrapper).
+        assertEquals(Uri.parse("https://example.com/page"), started.data)
+        assertTrue(started.getBooleanExtra(LinkRouter.EXTRA_HANDLED, false))
+    }
+
+    @Test
+    fun `path-prefix row does not match paths outside the prefix`() {
+        // Rule does NOT match www.tiktok.com — only example.com — so if the
+        // resolver were wrongly consulted the outcome would differ.
+        AppContainer.ruleRepository = FakeRepository(listOf(rule("org.example.browser")))
+        AppContainer.shortenerHostRepository = FakeShortenerRepo(listOf(
+            com.linkrouter.rules.ShortenerHost(
+                id = 27, name = "TikTok short links", host = "www.tiktok.com",
+                pathPrefix = "/t/", enabled = true, isBuiltIn = true,
+            )
+        ))
+        val fetchCalls = mutableListOf<String>()
+        AppContainer.shortenerFetcher = ShortenerResolver.Fetcher { url ->
+            fetchCalls.add(url)
+            ShortenerResolver.HopResponse(302, "https://example.com/page", "")
+        }
+        AppContainer.browserRegistry = FakeRegistry(context(), null)
+
+        // /@user is NOT under /t/ → no shortener match, no network.
+        val activity = build("https://www.tiktok.com/@user")
+        settle(activity)
+
+        assertEquals("resolver must not be consulted outside the prefix", emptyList<String>(), fetchCalls)
+        // Original URL flows to rules (no match) → fallback chooser, no crash.
+        val started = startedActivities(activity).single()
+        assertTrue(isBrowserChooser(started))
+        assertEquals(Uri.parse("https://www.tiktok.com/@user"), started.getParcelableExtra(LinkRouter.EXTRA_URI))
+    }
+
+    @Test
+    fun `host-only row still matches any path on subdomains`() {
+        // Regression: a null-prefix row keeps matching every path on the domain,
+        // including subdomains, after the registrable-domain matcher went in.
+        AppContainer.ruleRepository = FakeRepository(listOf(rule("org.example.browser")))
+        AppContainer.shortenerHostRepository = FakeShortenerRepo(listOf(
+            com.linkrouter.rules.ShortenerHost(id = 1, name = "t.co", host = "t.co", enabled = true, isBuiltIn = true)
+        ))
+        AppContainer.shortenerFetcher = ShortenerResolver.Fetcher { url ->
+            if (url == "https://t.co/abc") ShortenerResolver.HopResponse(302, "https://example.com/page", "")
+            else ShortenerResolver.HopResponse(200, null, "")
+        }
+        AppContainer.browserRegistry = FakeRegistry(context(), browser("org.example.browser"))
+
+        val activity = build("https://t.co/abc")
+        settle(activity)
+
+        val started = startedActivities(activity).single()
+        assertEquals("org.example.browser", started.`package`)
+        assertEquals(Uri.parse("https://example.com/page"), started.data)
+    }
+
     @Test
     fun `uninstalled target browser falls back to chooser`() {
         AppContainer.ruleRepository = FakeRepository(listOf(rule("org.missing.browser")))

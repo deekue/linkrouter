@@ -8,7 +8,7 @@
 > default → zero network).
 
 This document is the source of truth for a build agent. Follow it in the
-milestone order (M1 → M7). Where a decision is listed under "Locked decisions"
+milestone order (M1 → M8). Where a decision is listed under "Locked decisions"
 it is final — do not re-litigate it.
 
 ---
@@ -233,6 +233,17 @@ URL**. Resolution is opt-in per host (`ShortenerHost`, a separate entity from
 resolution is network following); all built-in hosts ship **disabled**, so the
 default build still makes zero network calls (D7).
 
+- **Optional path prefix:** a `ShortenerHost` row may now carry an optional
+  `pathPrefix` (nullable `TEXT`). `NULL` = **host-only** match, exactly the
+  historical behaviour (`t.co`, `bit.ly`) and unchanged for any existing row. A
+  non-null value additionally requires the **incoming** short link's path to
+  start with that prefix — case-insensitive, with a stored prefix normalized to
+  always start with `/` (so `t` and `/t` are equivalent). The host is matched on
+  the **registrable domain** (one leading `www.` stripped from both the stored
+  and incoming host) and the check runs on the **incoming** short link URL,
+  **not** the resolved destination (the resolver is unchanged). Two further
+  built-in rows ship **disabled** (so a default build still makes zero network
+  calls, D7/D9): `www.tiktok.com` + `/t/` and `www.facebook.com` + `/share/r/`.
 - **Fast path (implemented):** pure-JVM redirect following in
   `ShortenerResolver` (`RealFetcher` via `HttpURLConnection`,
   `instanceFollowRedirects=false`, browser UA, 6 s connect/read timeouts, max
@@ -499,9 +510,10 @@ user's chosen mode (default = **System chooser**):
 | **M5** | QA & release | Manual matrix green; unit + Robolectric green; Play listing + privacy labels. |
 | **M6** | Shortener resolution — fast path (D9) | `ShortenerResolver` pure-JVM redirect following; `ShortenerHost` opt-in per host (built-ins disabled); dispatcher re-runs the rule engine on the final URL and launches it; graceful degradation to the original URL (D6). **Completed.** |
 | **M7** | Shortener resolution — WebView fallback (D9) | Ephemeral resolution WebView (`ResolutionWebViewActivity`) that settles JS/Cloudflare/`<meta refresh>` interstitials and returns the final URL; the pure-JVM settle decision lives in `SettleDetector` (unit-testable, no WebView). The dispatcher escalates **only** on `Result.Interstitial` (not on Loop/MaxHops/Rejected/Error) and degrades to the original URL on failure/timeout (D6). Ephemeral privacy: cookies + cache + web storage cleared and the WebView destroyed on close. **Completed.** |
+| **M8** | Path-prefix shortener hosts (D9) | Optional `pathPrefix` on `ShortenerHost` (`NULL` = host-only, back-compat; non-null = the incoming short link's path must start with the prefix, case-insensitive, registrable-domain host match); pure-JVM `ShortenerMatcher`; two new **disabled** built-ins (`www.tiktok.com` + `/t/`, `www.facebook.com` + `/share/r/`). **Completed.** |
 
-Build strictly in M1 → M7 order; each milestone must be independently shippable
-and tested before the next begins. (M6 and M7 are both complete.)
+Build strictly in M1 → M8 order; each milestone must be independently shippable
+and tested before the next begins. (M6, M7 and M8 are complete.)
 
 ---
 

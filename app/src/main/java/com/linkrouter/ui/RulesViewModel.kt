@@ -213,13 +213,15 @@ class RulesViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { fmtRepo.resetBuiltIn() }
     }
 
-    fun addShortenerHost(name: String, host: String) {
+    fun addShortenerHost(name: String, host: String, pathPrefix: String? = null) {
         viewModelScope.launch {
+            val prefix = pathPrefix?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }
             shortenerRepo.insert(
                 com.linkrouter.rules.ShortenerHost(
                     id = 0,
                     name = name.trim(),
                     host = host.trim().lowercase(),
+                    pathPrefix = prefix,
                     enabled = true,
                     isBuiltIn = false,
                 )
