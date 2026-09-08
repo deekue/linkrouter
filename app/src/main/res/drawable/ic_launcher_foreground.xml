@@ -1,35 +1,53 @@
-<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path
-        android:fillColor="#3B4A6B"
-        android:pathData="M0,0h108v108h-108z" />
-    <!-- chain link: two interlocking rounded rectangles -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M46,54m-14,0a14,14 0,1 1,28 0a14,14 0,1 1,-28 0"
-        android:fillAlpha="0" />
-    <path
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="7"
-        android:strokeLineCap="round"
-        android:pathData="M54,40 L66,52" />
-    <path
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="7"
-        android:strokeLineCap="round"
-        android:pathData="M36,56 C36,47 43,42 50,46 L58,52" />
-    <path
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="7"
-        android:strokeLineCap="round"
-        android:pathData="M72,52 C72,61 65,66 58,62 L50,56" />
-    <path
-        android:strokeColor="#9FE8FF"
-        android:strokeWidth="7"
-        android:strokeLineCap="round"
-        android:pathData="M40,44 L34,50" />
+    <group>
+        <!-- Origin ring -->
+        <path
+            android:strokeColor="#4B5563"
+            android:strokeWidth="5"
+            android:fillColor="#00000000"
+            android:pathData="M 41,54 m -9.5,0 a 9.5,9.5 0 1,1 19,0 a 9.5,9.5 0 1,1 -19,0" />
+            
+        <!-- Straight route arrow -->
+        <path
+            android:strokeColor="#4B5563"
+            android:strokeWidth="5"
+            android:strokeLineCap="round"
+            android:pathData="M 41,54 L 65,54" />
+        <path
+            android:fillColor="#4B5563"
+            android:strokeColor="#4B5563"
+            android:strokeWidth="2"
+            android:strokeLineJoin="round"
+            android:pathData="M 63,44 L 76,54 L 63,64 Z" />
+
+        <!-- Upward route arrow -->
+        <path
+            android:strokeColor="#4B5563"
+            android:strokeWidth="5"
+            android:strokeLineCap="round"
+            android:pathData="M 41,54 L 59,36" />
+        <path
+            android:fillColor="#4B5563"
+            android:strokeColor="#4B5563"
+            android:strokeWidth="2"
+            android:strokeLineJoin="round"
+            android:pathData="M 54.5,27.5 L 69,26 L 67.5,40.5 Z" />
+
+        <!-- Downward route arrow -->
+        <path
+            android:strokeColor="#4B5563"
+            android:strokeWidth="5"
+            android:strokeLineCap="round"
+            android:pathData="M 41,54 L 59,72" />
+        <path
+            android:fillColor="#4B5563"
+            android:strokeColor="#4B5563"
+            android:strokeWidth="2"
+            android:strokeLineJoin="round"
+            android:pathData="M 67.5,67.5 L 69,82 L 54.5,80.5 Z" />
+    </group>
 </vector>
