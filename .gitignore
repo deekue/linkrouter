@@ -29,6 +29,16 @@ render.experimental.xml
 # Keystore files
 *.jks
 *.keystore
+*.p12
+
+# Local release-signing secrets (RELEASE_*): keep the checked-in
+# gradle.properties clean — add your secrets to a local, UNTRACKED
+# gradle.properties or export them as environment variables, and never commit
+# real values. (See gradle.properties.example.)
+#RELEASE_KEYSTORE=
+#RELEASE_KEY_ALIAS=
+#RELEASE_KEY_PASSWORD=
+#RELEASE_STORE_PASSWORD=
 
 # Google Services (e.g. APIs or Firebase)
 google-services.json

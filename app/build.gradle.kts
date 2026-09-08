@@ -5,6 +5,16 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
+// Release signing is driven entirely by external secrets (never hardcoded):
+// RELEASE_KEYSTORE, RELEASE_KEY_ALIAS, RELEASE_KEY_PASSWORD,
+// RELEASE_STORE_PASSWORD — each read from a `gradle.properties` key or an
+// environment variable of the same name (see gradle.properties.example).
+// If any is missing the release build type is simply left unsigned so
+// local/CI builds keep working.
+private fun releaseSecret(name: String): String? =
+    project.findProperty(name)?.toString()?.takeIf { it.isNotBlank() }
+        ?: System.getenv(name)?.takeIf { it.isNotBlank() }
+
 android {
     namespace = "net.chaosengine.linkrouter"
     compileSdk = 36
@@ -19,9 +29,34 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        // Applied only when ALL RELEASE_* secrets are present (helper above);
+        // otherwise this config is never used and the build stays unsigned.
+        create("release") {
+            val keystore = releaseSecret("RELEASE_KEYSTORE")
+            if (keystore != null) {
+                storeFile = file(keystore)
+                storePassword = releaseSecret("RELEASE_STORE_PASSWORD")
+                keyAlias = releaseSecret("RELEASE_KEY_ALIAS")
+                keyPassword = releaseSecret("RELEASE_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8/minify on for release only; debug stays unminified.
+            isMinifyEnabled = true
+            // Keep-rules for Moshi/Room can be added here if R8 needs them.
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+            val hasSigning = listOf("RELEASE_KEYSTORE", "RELEASE_KEY_ALIAS", "RELEASE_KEY_PASSWORD", "RELEASE_STORE_PASSWORD")
+                .all { releaseSecret(it) != null }
+            if (hasSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 

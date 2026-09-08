@@ -1,0 +1,16 @@
+# Template for local/CI release-signing secrets. Copy into a local, untracked
+# `gradle.properties` addition, or export the same values as environment
+# variables (environment variables of the same names also work).
+#
+# Never commit real values; these are intentionally blank here.
+#
+# RELEASE_KEYSTORE=path/to/release.jks
+# RELEASE_KEY_ALIAS=your-key-alias
+# RELEASE_KEY_PASSWORD=
+# RELEASE_STORE_PASSWORD=
+
+# --- The four keys (blank on purpose; fill in locally, do NOT commit) ---
+RELEASE_KEYSTORE=
+RELEASE_KEY_ALIAS=
+RELEASE_KEY_PASSWORD=
+RELEASE_STORE_PASSWORD=
