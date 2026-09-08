@@ -1,0 +1,76 @@
+# ============================================================================
+# LinkRouter (net.chaosengine.linkrouter) — DRAFT F-Droid recipe
+# ----------------------------------------------------------------------------
+# This is a DRAFT to be dropped into a F-Droid data repo, NOT the app's own
+# build config. It is written against the CURRENT f-droiddata "metadata"
+# schema (the per-version metadata file format), which a maintainer ships as:
+#
+#     metadata/net.chaosengine.linkrouter/0.1.0.yml
+#
+# (or the equivalent single-file layout of a third-party F-Droid repo).
+# See fdroid/README.md for the full submission guide.
+#
+# BUILD REQUIREMENTS (documented, not required to be actioned here):
+#   * Android Gradle Plugin 8.10.1 + Kotlin 2.0.21 + KSP 2.0.21-1.0.28
+#     + Jetpack Compose 2024.09.03  =>  the build needs a JDK 17 toolchain.
+#     F-Droid's build environment ships JDK 17 for this; nothing to do.
+#   * The committed Gradle wrapper is 8.11.1; we therefore build via `./gradlew`
+#     (NOT the bare `gradle` binary) so the exact version AGP 8.10.1 expects is
+#     used regardless of the F-Droid image's own Gradle.
+#   * Release is built UNSIGNED on purpose (no RELEASE_* signing secrets exist
+#     in a clean checkout); F-Droid then signs the APK with its own key after
+#     doPackage produces the unsigned-APK input. This is expected behaviour.
+#
+# TODO FIELDS A maintainer MUST fill in before this can be accepted (marked
+# below with `TODO_` / `REPLACE_WITH_`):
+#   AuthorName, AuthorEmail, Website, IssueTracker, SourceCode.repo, and
+#   a reachable SourceCode tag (v0.1.0) or pinned commit. Nothing here is
+#   invented — every unknown is an explicit placeholder, not a real URL/email.
+# ============================================================================
+
+Name: LinkRouter
+Summary: Rule-based URL router that strips tracking params and rewrites links before forwarding to your chosen browser
+
+Description: >-
+  LinkRouter is a local, rule-based URL router for Android. Set it as your
+  default browser and it intercepts http/https links, then — per your own
+  ordered rules — strips tracking parameters (utm_*, gclid, fbclid, ...),
+  rewrites the URL, and forwards it to the browser of your choice, including
+  private-window launches for Chrome and Firefox. It never renders a page
+  itself: it is a router/dispatcher, not a browser. Rules and settings are
+  stored locally only (Room); there is no ads, analytics, or telemetry, and a
+  default install makes zero network calls.
+
+AuthorName: Chaos Engine # TODO: replace with the real maintainer / legal name
+AuthorEmail: REPLACE_WITH_CONTACT_EMAIL   # TODO: a real, public, maintained contact address
+License: GPL-3.0-only
+Website: TODO_ADD_WEBSITE   # TODO: human-readable homepage / project page
+IssueTracker: TODO_ADD_ISSUE_TRACKER   # TODO: issue tracker URL (e.g. GitHub issues)
+
+SourceCode:
+    # TODO: a PUBLIC repository reachable at exactly this URL with a `v0.1.0`
+    # tag (and commit), e.g. https://github.com/<org>/linkrouter
+    repo: TODO_ADD_PUBLIC_REPO_URL
+    tag: v0.1.0            # release tag F-Droid checks out on first build
+    # Optional alternative — pin an exact commit instead of a tag (pick ONE ref):
+    # commit: <full 40-char sha>   # e.g. `git rev-parse v0.1.0` once pushed publicly
+    # NOTE: `ifNoAuthForce` (from the task scaffold) is NOT a valid f-droiddata
+    # SourceCode key and has been intentionally omitted.
+
+Build:
+    # All dependencies resolve from google() and mavenCentral(), both of which
+    # F-Droid allows by default. No non-free / pre-fetched deps are required,
+    # so doDeps is deliberately omitted (empty).
+    doBuild:
+        # Unsigned release APK on purpose; see header note. JDK 17 required.
+        - ./gradlew clean assembleRelease --stacktrace
+
+    # OPTIONAL test step: unit tests are pure-JVM / Robolectric and pass on a
+    # clean checkout. Kept as its own (skippable) step so F-Droid's default
+    # per-task test policy still applies. Drop this block if you prefer the
+    # build to skip `test` entirely.
+    doCheck:
+        - ./gradlew test --stacktrace
+
+    doPackage:
+        - cp app/build/outputs/apk/release/app-release-unsigned.apk LinkRouter.apk
