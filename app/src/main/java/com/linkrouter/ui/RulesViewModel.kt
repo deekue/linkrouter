@@ -290,6 +290,20 @@ class RulesViewModel(app: Application) : AndroidViewModel(app) {
 
     suspend fun exportFormats(): List<RedirectFormat> = fmtRepo.all()
 
+    fun importQueryParamFilters(filters: List<com.linkrouter.rules.QueryParamFilter>) {
+        viewModelScope.launch { paramFilterRepo.importAllFilters(filters) }
+    }
+
+    fun parseFilterJson(json: String): List<com.linkrouter.rules.QueryParamFilter>? {
+        return try {
+            com.linkrouter.importexport.RuleSerializer.fromFilterJson(json)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    suspend fun exportQueryParamFilters(): List<com.linkrouter.rules.QueryParamFilter> = paramFilterRepo.all()
+
     fun setWarnPrivate(enabled: Boolean) {
         settings.setWarnPrivate(enabled)
     }

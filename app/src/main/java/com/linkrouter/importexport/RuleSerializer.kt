@@ -4,6 +4,7 @@ import com.linkrouter.rules.ExtractType
 import com.linkrouter.rules.MatchType
 import com.linkrouter.rules.OpenMode
 import com.linkrouter.rules.RedirectFormat
+import com.linkrouter.rules.QueryParamFilter
 import com.linkrouter.rules.Rule
 import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
@@ -27,6 +28,7 @@ object RuleSerializer {
         val version: Int = 1,
         val rules: List<RuleDto> = emptyList(),
         val redirectFormats: List<RedirectFormatDto>? = null,
+        val queryParamFilters: List<QueryParamFilterDto>? = null,
     )
 
     @JsonClass(generateAdapter = true)
@@ -52,9 +54,20 @@ object RuleSerializer {
         val openRealDestination: Boolean = false,
     )
 
+    @JsonClass(generateAdapter = true)
+    data class QueryParamFilterDto(
+        val param: String,
+        val host: String? = null,
+        val enabled: Boolean = true,
+        val builtIn: Boolean = false,
+    )
+
     fun toJson(rules: List<Rule>): String = toJson(rules, emptyList())
 
-    fun toJson(rules: List<Rule>, formats: List<RedirectFormat>): String {
+    fun toJson(rules: List<Rule>, formats: List<RedirectFormat>): String =
+        toJson(rules, formats, emptyList())
+
+    fun toJson(rules: List<Rule>, formats: List<RedirectFormat>, filters: List<QueryParamFilter>): String {
         val list = RuleList(
             version = 1,
             rules = rules.map {
@@ -78,6 +91,14 @@ object RuleSerializer {
                     priority = it.priority,
                     isBuiltIn = it.isBuiltIn,
                     openRealDestination = it.openRealDestination,
+                )
+            },
+            queryParamFilters = filters.map {
+                QueryParamFilterDto(
+                    param = it.param,
+                    host = it.host,
+                    enabled = it.enabled,
+                    builtIn = it.isBuiltIn,
                 )
             },
         )
@@ -115,6 +136,22 @@ object RuleSerializer {
                 priority = dto.priority,
                 isBuiltIn = dto.isBuiltIn,
                 openRealDestination = dto.openRealDestination,
+            )
+        }
+    }
+
+    fun fromFilterJson(json: String): List<QueryParamFilter> {
+        val list = adapter.fromJson(json) ?: throw IllegalArgumentException("Empty or invalid JSON")
+        val dtos = list.queryParamFilters ?: emptyList()
+        return dtos.map { dto ->
+            QueryParamFilter(
+                id = 0,
+                name = dto.param,
+                param = dto.param,
+                host = dto.host,
+                enabled = dto.enabled,
+                priority = 0,
+                isBuiltIn = dto.builtIn,
             )
         }
     }

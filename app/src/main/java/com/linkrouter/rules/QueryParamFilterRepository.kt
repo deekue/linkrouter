@@ -1,5 +1,6 @@
 package com.linkrouter.rules
 
+import androidx.room.withTransaction
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -63,6 +64,25 @@ open class QueryParamFilterRepository(private val db: LinkRouterDatabase) {
             dao.update(QueryParamFilterEntity.fromQueryParamFilter(current.toQueryParamFilter().copy(enabled = false)))
         } else {
             dao.deleteById(id)
+        }
+    }
+
+    /**
+     * Replace the user's filters (import). Existing built-in rows are preserved
+     * (seeded by [com.linkrouter.AppContainer] on every open); imported
+     * built-in rows are dropped since they are not canonical. Imported user
+     * rows get fresh positive ids. Mirrors [RedirectFormatRepository.importAllFormats].
+     */
+    suspend fun importAllFilters(filters: List<QueryParamFilter>) = db.withTransaction {
+        dao.deleteNonBuiltIn()
+        val userFilters = filters.filter { !it.isBuiltIn }
+        userFilters.forEachIndexed { index, filter ->
+            val priority = userFilters.size - index
+            dao.upsert(
+                QueryParamFilterEntity.fromQueryParamFilter(
+                    filter.copy(id = 0L, isBuiltIn = false, priority = priority)
+                )
+            )
         }
     }
 }
