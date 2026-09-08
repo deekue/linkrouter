@@ -341,7 +341,7 @@ strategy** keyed by package name, in three tiers:
 
 | Browser (package) | Strategy | Capability | `isRealPrivate()` |
 |---|---|---|---|
-| **Built-in WebView** (`com.linkrouter.webview`) | In-app [WebViewActivity](#71-in-app-webview-target). The page never leaves our process; cookies/cache cleared on close. | **REAL** | true |
+| **Built-in WebView** (`net.chaosengine.linkrouter.webview`) | In-app [WebViewActivity](#71-in-app-webview-target). The page never leaves our process; cookies/cache cleared on close. | **REAL** | true |
 | Firefox (`org.mozilla.firefox`) | Attach `private_browsing_mode=true` extra. **Verified on-device (2026-09-06):** URL opens in a genuine private window (purple shield). | **REAL** | true |
 | Chrome (`com.android.chrome`) | `com.google.android.apps.chrome.EXTRA_OPEN_NEW_INCOGNITO_TAB=true` opens incognito **but drops the URL** (verified on-device) → must NOT be attached. Open the URL normally + warn (D6). | **NONE** | false |
 | Brave / Kiwi / Bromite / DDG / others | No known private extra. Open normally + warn (D6). | **NONE** | false |
@@ -393,7 +393,7 @@ a system-level private-browsing toggle), register it here as a REAL strategy.
 ### 7.1 In-app WebView target
 
 A built-in target (`WebViewTarget`, sentinel package
-`com.linkrouter.webview`) that renders the URL inside
+`net.chaosengine.linkrouter.webview`) that renders the URL inside
 `WebViewActivity` — a Compose screen embedding a `WebView` via `AndroidView`.
 
 - **REAL private, verified by construction:** the page never leaves our process.

@@ -6,12 +6,12 @@ plugins {
 }
 
 android {
-    namespace = "com.linkrouter"
+    namespace = "net.chaosengine.linkrouter"
     compileSdk = 36
     buildToolsVersion = "36.0.0"
 
     defaultConfig {
-        applicationId = "com.linkrouter"
+        applicationId = "net.chaosengine.linkrouter"
         minSdk = 26
         targetSdk = 36
         versionCode = 1
