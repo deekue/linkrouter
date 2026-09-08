@@ -57,6 +57,7 @@ import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -239,10 +240,12 @@ private fun RuleRowItem(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Reorder (up/down)
-        IconButton(onClick = onMoveUp, enabled = canMoveUp, modifier = Modifier.size(32.dp)) {
+        IconButton(onClick = onMoveUp, enabled = canMoveUp,
+            modifier = Modifier.size(32.dp).testTag("rule_${rule.id}_moveUp")) {
             Icon(Icons.Filled.KeyboardDoubleArrowUp, contentDescription = "Move up")
         }
-        IconButton(onClick = onMoveDown, enabled = canMoveDown, modifier = Modifier.size(32.dp)) {
+        IconButton(onClick = onMoveDown, enabled = canMoveDown,
+            modifier = Modifier.size(32.dp).testTag("rule_${rule.id}_moveDown")) {
             Icon(Icons.Filled.KeyboardDoubleArrowDown, contentDescription = "Move down")
         }
 

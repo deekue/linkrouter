@@ -105,4 +105,43 @@ class RuleRepositoryTest {
         assertEquals(listOf("b.com"), repo.all().map { it.pattern })
         assertEquals(id2, repo.all().single().id)
     }
+
+    /**
+     * Regression test for the "tapping up/down on a rule crashes the app" bug.
+     *
+     * [RuleEntity] enforces a UNIQUE index on `priority`. Reordering swaps two
+     * rows' priorities; applying the final priorities one row at a time can
+     * collide with the other row that still holds the target slot, tripping the
+     * unique index (`SQLiteConstraintException`) and crashing. The fix writes
+     * non-colliding temporary priorities first, then the real ones. This drives
+     * every adjacent swap (up and down) to prove none throws.
+     */
+    @Test
+    fun `moving a rule up or down reorders without tripping the unique priority index`() = runBlocking {
+        val id1 = repo.insert(rule("a.com"))
+        val id2 = repo.insert(rule("b.com"))
+        val id3 = repo.insert(rule("c.com"))
+
+        // Insert order: c (top) > b > a (bottom).
+        assertEquals(listOf("c.com", "b.com", "a.com"), repo.all().map { it.pattern })
+
+        // Move the middle rule (b) UP -> b must jump to the top.
+        repo.reorder(listOf(id2, id3, id1))
+        assertEquals("mid up", listOf("b.com", "c.com", "a.com"), repo.all().map { it.pattern })
+
+        // Move the middle rule (b) DOWN -> b must drop below c.
+        repo.reorder(listOf(id3, id2, id1))
+        assertEquals("mid down", listOf("c.com", "b.com", "a.com"), repo.all().map { it.pattern })
+
+        // Swap the bottom two (a over c).
+        repo.reorder(listOf(id1, id2, id3))
+        assertEquals("bottom up", listOf("a.com", "b.com", "c.com"), repo.all().map { it.pattern })
+
+        // Full reverse.
+        repo.reorder(listOf(id3, id2, id1))
+        assertEquals("reverse", listOf("c.com", "b.com", "a.com"), repo.all().map { it.pattern })
+
+        assertEquals("no rows lost", 3, repo.count())
+        assertEquals("priorities stay unique", 3, repo.all().map { it.priority }.toSet().size)
+    }
 }

@@ -13,9 +13,11 @@ import net.chaosengine.linkrouter.browsers.BrowserInfo
 import net.chaosengine.linkrouter.browsers.BrowserRegistry
 import net.chaosengine.linkrouter.rules.MatchType
 import net.chaosengine.linkrouter.rules.OpenMode
+import net.chaosengine.linkrouter.rules.QueryParamFilterRepository
 import net.chaosengine.linkrouter.rules.RedirectFormatRepository
 import net.chaosengine.linkrouter.rules.Rule
 import net.chaosengine.linkrouter.rules.RuleRepository
+import net.chaosengine.linkrouter.rules.ShortenerHostRepository
 import net.chaosengine.linkrouter.settings.FallbackMode
 import net.chaosengine.linkrouter.settings.SettingsStore
 import kotlinx.coroutines.flow.Flow
@@ -55,6 +57,10 @@ class SettingsScreenAsyncRecompositionTest {
         // AppContainer.get(app) does not lazily build a real Room DB.
         AppContainer.ruleRepository = FakeRuleRepository(emptyList())
         AppContainer.redirectFormatRepository = NoopFormatRepository()
+        // [RulesViewModel] reads these two eagerly in its constructor; they must
+        // be initialized or construction throws UninitializedPropertyAccessException.
+        AppContainer.shortenerHostRepository = ShortenerHostRepository(RoomlessDb())
+        AppContainer.queryParamFilterRepository = QueryParamFilterRepository(RoomlessDb())
         AppContainer.browserRegistry = TestRegistry(context)
         AppContainer.settings = SettingsStore(context)
 
@@ -109,7 +115,11 @@ class SettingsScreenAsyncRecompositionTest {
     /** Unset the four DI singletons so they read as uninitialized again. */
     private fun resetContainer() {
         val c = AppContainer
-        for (name in listOf("ruleRepository", "redirectFormatRepository", "browserRegistry", "settings")) {
+        for (name in listOf(
+            "ruleRepository", "redirectFormatRepository",
+            "shortenerHostRepository", "queryParamFilterRepository",
+            "browserRegistry", "settings",
+        )) {
             val f = c.javaClass.getDeclaredField(name)
             f.isAccessible = true
             f.set(c, null)
