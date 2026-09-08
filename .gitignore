@@ -45,3 +45,6 @@ google-services.json
 
 # Android Profiling
 *.hprof
+
+# Node modules for the feature-graphic generator (docs/assets/)
+node_modules/

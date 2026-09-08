@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1024" height="500" viewBox="0 0 1024 500" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background: app surface color -->
+  <rect width="1024" height="500" fill="#FAF9FD"/>
+
+  <!-- Large soft accent disc (pale periwinkle, brand primary-container) -->
+  <circle cx="800" cy="250" r="250" fill="#D9E2F8"/>
+
+  <!-- Small accent dots (brand primary) -->
+  <circle cx="150" cy="250" r="24" fill="#3B4A6B"/>
+  <circle cx="228" cy="168" r="11" fill="#3B4A6B"/>
+  <circle cx="228" cy="332" r="11" fill="#3B4A6B"/>
+
+  <!-- Routing diagram: exact geometry of ic_launcher_foreground.svg,
+       scaled 4.4x, centered so the ring sits at (500, 250) -->
+  <g transform="translate(320,114) scale(4.4)" fill="#3B4A6B" stroke="#3B4A6B">
+    <circle cx="41" cy="54" r="9.5" stroke="#3B4A6B" stroke-width="5" fill="none"/>
+    <path d="M 41 54 L 65 54" stroke="#3B4A6B" stroke-width="5" stroke-linecap="round"/>
+    <polygon points="63,44 76,54 63,64" fill="#3B4A6B" stroke="#3B4A6B" stroke-linejoin="round" stroke-width="2"/>
+    <path d="M 41 54 L 59 36" stroke="#3B4A6B" stroke-width="5" stroke-linecap="round"/>
+    <polygon points="54.5,27.5 69,26 67.5,40.5" fill="#3B4A6B" stroke="#3B4A6B" stroke-linejoin="round" stroke-width="2"/>
+    <path d="M 41 54 L 59 72" stroke="#3B4A6B" stroke-width="5" stroke-linecap="round"/>
+    <polygon points="67.5,67.5 69,82 54.5,80.5" fill="#3B4A6B" stroke="#3B4A6B" stroke-linejoin="round" stroke-width="2"/>
+  </g>
+</svg>

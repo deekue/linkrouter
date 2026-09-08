@@ -1,0 +1,9 @@
+{
+  "name": "linkrouter-feature-graphic",
+  "private": true,
+  "description": "Dependencies for regenerating the Play Store feature graphic (playstore-feature-graphic.mjs).",
+  "type": "module",
+  "dependencies": {
+    "sharp": "^0.35.4"
+  }
+}
