@@ -60,4 +60,4 @@ does.
 ## Contact
 
 For questions or concerns about this policy or your data, contact:
-`REPLACE_WITH_CONTACT_EMAIL` (placeholder — maintainer to fill in).
+`deekue+privacy@chaosengine.net`.
