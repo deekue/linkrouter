@@ -304,6 +304,20 @@ class RulesViewModel(app: Application) : AndroidViewModel(app) {
 
     suspend fun exportQueryParamFilters(): List<net.chaosengine.linkrouter.rules.QueryParamFilter> = paramFilterRepo.all()
 
+    fun importShortenerHosts(hosts: List<net.chaosengine.linkrouter.rules.ShortenerHost>) {
+        viewModelScope.launch { shortenerRepo.importAllHosts(hosts) }
+    }
+
+    fun parseShortenerHostJson(json: String): List<net.chaosengine.linkrouter.rules.ShortenerHost>? {
+        return try {
+            net.chaosengine.linkrouter.importexport.RuleSerializer.fromShortenerHostJson(json)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    suspend fun exportShortenerHosts(): List<net.chaosengine.linkrouter.rules.ShortenerHost> = shortenerRepo.all()
+
     fun setWarnPrivate(enabled: Boolean) {
         settings.setWarnPrivate(enabled)
     }

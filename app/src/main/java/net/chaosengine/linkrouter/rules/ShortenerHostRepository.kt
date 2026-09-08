@@ -1,5 +1,6 @@
 package net.chaosengine.linkrouter.rules
 
+import androidx.room.withTransaction
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -62,6 +63,25 @@ open class ShortenerHostRepository(private val db: LinkRouterDatabase) {
             dao.update(ShortenerHostEntity.fromShortenerHost(current.toShortenerHost().copy(enabled = false)))
         } else {
             dao.deleteById(id)
+        }
+    }
+
+    /**
+     * Replace the user's hosts (import). Existing built-in rows are preserved
+     * (seeded by [net.chaosengine.linkrouter.AppContainer] on every open); imported
+     * built-in rows are dropped since they are not canonical. Imported user rows
+     * get fresh positive ids. Mirrors [QueryParamFilterRepository.importAllFilters].
+     */
+    open suspend fun importAllHosts(hosts: List<ShortenerHost>) = db.withTransaction {
+        dao.deleteNonBuiltIn()
+        val userHosts = hosts.filter { !it.isBuiltIn }
+        userHosts.forEachIndexed { index, host ->
+            val priority = userHosts.size - index
+            dao.upsert(
+                ShortenerHostEntity.fromShortenerHost(
+                    host.copy(id = 0L, isBuiltIn = false, priority = priority)
+                )
+            )
         }
     }
 }

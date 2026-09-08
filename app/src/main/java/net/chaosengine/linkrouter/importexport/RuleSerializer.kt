@@ -6,6 +6,7 @@ import net.chaosengine.linkrouter.rules.OpenMode
 import net.chaosengine.linkrouter.rules.RedirectFormat
 import net.chaosengine.linkrouter.rules.QueryParamFilter
 import net.chaosengine.linkrouter.rules.Rule
+import net.chaosengine.linkrouter.rules.ShortenerHost
 import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
@@ -29,6 +30,7 @@ object RuleSerializer {
         val rules: List<RuleDto> = emptyList(),
         val redirectFormats: List<RedirectFormatDto>? = null,
         val queryParamFilters: List<QueryParamFilterDto>? = null,
+        val shortenerHosts: List<ShortenerHostDto>? = null,
     )
 
     @JsonClass(generateAdapter = true)
@@ -62,12 +64,29 @@ object RuleSerializer {
         val builtIn: Boolean = false,
     )
 
+    @JsonClass(generateAdapter = true)
+    data class ShortenerHostDto(
+        val name: String,
+        val host: String,
+        val pathPrefix: String? = null,
+        val enabled: Boolean = true,
+        val builtIn: Boolean = false,
+    )
+
     fun toJson(rules: List<Rule>): String = toJson(rules, emptyList())
 
     fun toJson(rules: List<Rule>, formats: List<RedirectFormat>): String =
         toJson(rules, formats, emptyList())
 
-    fun toJson(rules: List<Rule>, formats: List<RedirectFormat>, filters: List<QueryParamFilter>): String {
+    fun toJson(rules: List<Rule>, formats: List<RedirectFormat>, filters: List<QueryParamFilter>): String =
+        toJson(rules, formats, filters, emptyList())
+
+    fun toJson(
+        rules: List<Rule>,
+        formats: List<RedirectFormat>,
+        filters: List<QueryParamFilter>,
+        hosts: List<ShortenerHost>,
+    ): String {
         val list = RuleList(
             version = 1,
             rules = rules.map {
@@ -97,6 +116,15 @@ object RuleSerializer {
                 QueryParamFilterDto(
                     param = it.param,
                     host = it.host,
+                    enabled = it.enabled,
+                    builtIn = it.isBuiltIn,
+                )
+            },
+            shortenerHosts = hosts.map {
+                ShortenerHostDto(
+                    name = it.name,
+                    host = it.host,
+                    pathPrefix = it.pathPrefix,
                     enabled = it.enabled,
                     builtIn = it.isBuiltIn,
                 )
@@ -149,6 +177,22 @@ object RuleSerializer {
                 name = dto.param,
                 param = dto.param,
                 host = dto.host,
+                enabled = dto.enabled,
+                priority = 0,
+                isBuiltIn = dto.builtIn,
+            )
+        }
+    }
+
+    fun fromShortenerHostJson(json: String): List<ShortenerHost> {
+        val list = adapter.fromJson(json) ?: throw IllegalArgumentException("Empty or invalid JSON")
+        val dtos = list.shortenerHosts ?: emptyList()
+        return dtos.map { dto ->
+            ShortenerHost(
+                id = 0,
+                name = dto.name,
+                host = dto.host,
+                pathPrefix = dto.pathPrefix,
                 enabled = dto.enabled,
                 priority = 0,
                 isBuiltIn = dto.builtIn,

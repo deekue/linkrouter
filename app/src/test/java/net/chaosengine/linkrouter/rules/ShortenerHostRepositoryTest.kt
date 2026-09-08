@@ -172,4 +172,41 @@ class ShortenerHostRepositoryTest {
         repo.delete(id)
         assertEquals(1, repo.count())
     }
+
+    @Test
+    fun importAllHosts_replacesUserRows_preservesBuiltIns() = runBlocking {
+        // Pre-existing state: one user host + one built-in.
+        repo.insert(host("old-user.com", enabled = true))
+        repo.insert(host("t.co", isBuiltIn = true, enabled = false))
+
+        // Import a fresh set containing user + a (non-canonical) built-in.
+        repo.importAllHosts(
+            listOf(
+                host("new-a.com", enabled = true),
+                host("new-b.com", pathPrefix = "/x/", enabled = false),
+                host("t.co", isBuiltIn = true, enabled = true), // imported built-in must be dropped
+            )
+        )
+
+        val all = repo.all()
+        // The old user host is gone; the two new user hosts remain.
+        assertEquals("imported user rows", setOf("new-a.com", "new-b.com"), all.filter { !it.isBuiltIn }.map { it.host }.toSet())
+        // Built-in survived and kept its seeded (disabled) state — the imported built-in was dropped.
+        assertEquals("built-in must be preserved", 1, all.count { it.isBuiltIn })
+        assertEquals(false, all.single { it.isBuiltIn }.enabled)
+        // Imported user rows are not flagged built-in.
+        assertTrue(all.none { !it.isBuiltIn && it.isBuiltIn })
+    }
+
+    @Test
+    fun importAllHosts_emptyList_clearsUserRows_keepsBuiltIns() = runBlocking {
+        repo.insert(host("user.com", enabled = true))
+        repo.insert(host("t.co", isBuiltIn = true))
+
+        repo.importAllHosts(emptyList())
+
+        val all = repo.all()
+        assertEquals("no user rows after empty import", 0, all.count { !it.isBuiltIn })
+        assertEquals("built-in survives", 1, all.count { it.isBuiltIn })
+    }
 }
