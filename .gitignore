@@ -48,3 +48,8 @@ google-services.json
 
 # Node modules for the feature-graphic generator (docs/assets/)
 node_modules/
+
+# Hugo GitHub Pages
+docs/public/
+docs/resources/_gen/
+docs/.hugo_build.lock

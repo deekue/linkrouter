@@ -1,3 +1,8 @@
++++
+date = '2026-09-09T13:10:31Z'
+draft = false
+title = 'LinkRouter Privacy Policy'
++++
 # LinkRouter Privacy Policy
 
 **App:** LinkRouter (`net.chaosengine.linkrouter`)

@@ -1,0 +1,13 @@
+baseURL: https://deekue.github.io/linkrouter
+locale: en-us
+title: LinkRouter
+theme: hugo-coder
+caches:
+  images:
+    dir: :cacheDir/images
+disableKinds:
+  - taxonomy
+  - term
+markup:
+  highlight:
+    style: "github-dark"
