@@ -1,0 +1,56 @@
+# Continuous integration for LinkRouter.
+#
+# Runs on every pull request (and branch push) to catch build/lint/test
+# regressions before they reach a release. Unsigned build only — no secrets
+# needed, which is consistent with app/build.gradle.kts: when the RELEASE_*
+# values are absent the release build type is simply left unsigned.
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build, Lint, Test (unsigned)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK (API 36, build-tools 36.0.0)
+        uses: actions/setup-android@v4
+        with:
+          api-level: 36
+          build-tools: 36.0.0
+          overwrite: true
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build release (unsigned)
+        run: ./gradlew :app:assembleRelease --no-daemon
+
+      - name: Run lint
+        run: ./gradlew :app:lintDebug --no-daemon
+
+      - name: Run unit tests
+        run: ./gradlew :app:testDebugUnitTest --no-daemon
