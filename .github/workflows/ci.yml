@@ -40,20 +40,66 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # ubuntu-latest ships the Android SDK preinstalled with ANDROID_HOME
-          # already set. Make sure the tooling is on PATH and that the packages
-          # this project needs exist (sdkmanager --install is a no-op if they
-          # are already present), then accept any outstanding licenses.
-          export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
-          export ANDROID_SDK_ROOT="$ANDROID_HOME"
-          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
-          if ! command -v sdkmanager > /dev/null 2>&1; then
-            echo "::error::Android SDK tooling (sdkmanager) not found; ANDROID_HOME=$ANDROID_HOME"
-            exit 1
+
+          # ---- Choose ONE consistent SDK root for the whole job ---------------
+          # We no longer assume the runner preinstalls cmdline-tools in a path we
+          # can trust (that caused the original failure). If ANDROID_SDK_ROOT is
+          # already set and points at a usable cmdline-tools (fast path), keep it;
+          # otherwise install everything into a home-directory SDK root that the
+          # job user can always write to. ANDROID_HOME always mirrors
+          # ANDROID_SDK_ROOT so Gradle and the tooling agree on one location.
+          if [ -n "${ANDROID_SDK_ROOT:-}" ] && [ -x "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager" ]; then
+            export ANDROID_HOME="${ANDROID_SDK_ROOT}"
+          else
+            export ANDROID_SDK_ROOT="${HOME}/.android-sdk"
+            export ANDROID_HOME="${ANDROID_SDK_ROOT}"
           fi
-          sdkmanager --install "platforms;android-36" "build-tools;36.0.0"
-          yes | sdkmanager --licenses
-          sdkmanager --version
+          export ANDROID_SDK_ROOT ANDROID_HOME
+          SDKMANAGER="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager"
+
+          # ---- Ensure command-line tools are present (idempotent) -------------
+          if [ ! -x "${SDKMANAGER}" ]; then
+            echo "cmdline-tools not found at ${SDKMANAGER}; downloading official build 11076708..."
+            SDK_TMP="$(mktemp -d)"
+            curl -fsSL -o "${SDK_TMP}/cmdline-tools.zip" \
+              "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip"
+            if command -v unzip > /dev/null 2>&1; then
+              unzip -q -o "${SDK_TMP}/cmdline-tools.zip" -d "${SDK_TMP}"
+            else
+              python3 -m zipfile -e "${SDK_TMP}/cmdline-tools.zip" "${SDK_TMP}"
+            fi
+            # The zip unpacks to cmdline-tools/<version>/; normalize onto .../latest.
+            rm -rf "${ANDROID_SDK_ROOT}/cmdline-tools/latest"
+            mkdir -p "${ANDROID_SDK_ROOT}/cmdline-tools"
+            mv "${SDK_TMP}/cmdline-tools" "${ANDROID_SDK_ROOT}/cmdline-tools/latest"
+            rm -rf "${SDK_TMP}"
+          fi
+
+          # Make the tooling available for THIS step.
+          export PATH="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin:${ANDROID_SDK_ROOT}/platform-tools:${PATH}"
+
+          # ---- Accept licenses, then install the packages we need -------------
+          # Licenses first; sdkmanager --install needs them accepted. Under
+          # `set -o pipefail`, a plain `yes | sdkmanager --licenses` returns 141
+          # (`yes` dies on SIGPIPE after the prompts are answered), which would
+          # fail the step, so guard it as non-fatal; a real failure resurfaces at
+          # the --install call right after.
+          yes | "${SDKMANAGER}" --licenses 2>&1 || echo "::warning::'sdkmanager --licenses' exited non-zero (expected once licenses are accepted); continuing."
+          "${SDKMANAGER}" --install "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+
+          # ---- Persist environment for the Gradle steps that follow -----------
+          # A plain `run:` step does NOT leak exports to later steps; GITHUB_ENV /
+          # GITHUB_PATH do. This is what lets setup-gradle / assemble / lint /
+          # test actually see the SDK.
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+
+          # ---- Diagnostics for the logs ---------------------------------------
+          echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT}"
+          "${SDKMANAGER}" --version
+          ls -la "${ANDROID_SDK_ROOT}"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
