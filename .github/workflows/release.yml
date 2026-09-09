@@ -197,6 +197,25 @@ jobs:
             ls -lh "$f"
           done
 
+      - name: Package unstripped native symbols for Play Console
+        shell: bash
+        run: |
+          set -euo pipefail
+          NATIVE_LIBS_OUT="app/build/intermediates/merged_native_libs/release/mergeReleaseNativeLibs/out"
+          if [ ! -d "$NATIVE_LIBS_OUT" ]; then
+            echo "::warning::No merged native libs found at ${NATIVE_LIBS_OUT}; creating empty symbol zip (no native code in this build)."
+            # Keep app-symbols.zip present so fail_on_unmatched_files does not fail the release.
+            (echo "no native code in this build" > README.txt && zip -q -9 app-symbols.zip README.txt)
+            cp app-symbols.zip "$GITHUB_WORKSPACE/app-symbols.zip"
+            exit 0
+          fi
+          cd "$NATIVE_LIBS_OUT"
+          # Play Console expects the symbol zip to contain lib/<abi>/<so> at the root.
+          zip -r -9 app-symbols.zip lib/
+          ls -lh app-symbols.zip
+          # Stage the zip at the repo root so the release step can attach it.
+          cp app-symbols.zip "$GITHUB_WORKSPACE/app-symbols.zip"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
@@ -207,3 +226,4 @@ jobs:
           files: |
             app/build/outputs/apk/release/app-release.apk
             app/build/outputs/bundle/release/app-release.aab
+            app-symbols.zip
