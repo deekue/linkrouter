@@ -1,0 +1,151 @@
+# Release workflow for the LinkRouter Android app.
+#
+# Triggers:
+#   - push of a version tag matching `v*` (e.g. v0.2.0)
+#   - manual run via "Actions → Release → Run workflow"
+#
+# What it does:
+#   - verifies all release-signing secrets are present (fails clearly if not),
+#   - imports the keystore from a base64 secret into the workspace,
+#   - builds a signed :app:assembleRelease APK and :app:bundleRelease AAB,
+#   - creates a GitHub Release (tag `v<version>`) with both as assets.
+#
+# Required repository secrets (Settings → Secrets and variables → Actions):
+#   RELEASE_KEYSTORE_B64    base64-encoded release keystore file (.jks)
+#   RELEASE_KEY_ALIAS       key alias inside the keystore
+#   RELEASE_KEY_PASSWORD    key password
+#   RELEASE_STORE_PASSWORD  keystore password
+#
+# The build (app/build.gradle.kts) reads RELEASE_KEYSTORE (a file *path*),
+# RELEASE_KEY_ALIAS, RELEASE_KEY_PASSWORD and RELEASE_STORE_PASSWORD from the
+# environment, so this workflow decodes the base64 secret to a known path and
+# exports exactly those names.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: 'Version to release (no leading v), e.g. 0.2.0'
+        required: true
+        default: '0.1.0'
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release:
+    name: Build signed release + publish GitHub Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history so release notes can be generated
+
+      - name: Resolve release version
+        id: version
+        shell: bash
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="${{ inputs.version_name }}"
+          fi
+          if [[ ! "$VERSION" =~ ^[0-9]+(\.[0-9]+){1,2}$ ]]; then
+            echo "::error::Version '$VERSION' does not look like a semantic version (e.g. 0.2.0)"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Tag to create: v$VERSION"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK (API 36, build-tools 36.0.0)
+        uses: actions/setup-android@v4
+        with:
+          api-level: 36
+          build-tools: 36.0.0
+          overwrite: true
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Verify release signing secrets
+        env:
+          KS_B64: ${{ secrets.RELEASE_KEYSTORE_B64 }}
+          K_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          K_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+          S_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+        shell: bash
+        run: |
+          missing=()
+          [ -n "$KS_B64" ]   || missing+=(RELEASE_KEYSTORE_B64)
+          [ -n "$K_ALIAS" ]  || missing+=(RELEASE_KEY_ALIAS)
+          [ -n "$K_PASSWORD" ] || missing+=(RELEASE_KEY_PASSWORD)
+          [ -n "$S_PASSWORD" ] || missing+=(RELEASE_STORE_PASSWORD)
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Refusing to build an unsigned release. Missing required secrets: ${missing[*]}"
+            echo "Add them under Settings → Secrets and variables → Actions and re-run."
+            exit 1
+          fi
+
+      - name: Import and verify release keystore
+        env:
+          KS_B64: ${{ secrets.RELEASE_KEYSTORE_B64 }}
+          S_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/build/keystore"
+          printf '%s' "$KS_B64" | base64 -d > "$GITHUB_WORKSPACE/build/keystore/release.jks"
+          # Fail early if the keystore/password are wrong, before wasting ~10 min on a build.
+          keytool -list -v \
+            -keystore "$GITHUB_WORKSPACE/build/keystore/release.jks" \
+            -storepass "$S_PASSWORD"
+
+      - name: Build signed release APK and AAB
+        env:
+          RELEASE_KEYSTORE: ${{ github.workspace }}/build/keystore/release.jks
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+        run: ./gradlew :app:assembleRelease :app:bundleRelease --no-daemon --stacktrace
+
+      - name: Verify artifacts exist
+        shell: bash
+        run: |
+          for f in \
+            "app/build/outputs/apk/release/app-release.apk" \
+            "app/build/outputs/bundle/release/app-release.aab"; do
+            if [ ! -f "$f" ]; then
+              echo "::error::Expected artifact missing: $f"
+              exit 1
+            fi
+            ls -lh "$f"
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: LinkRouter v${{ steps.version.outputs.version }}
+          draft: ${{ github.ref_type != 'tag' }}
+          fail_on_unmatched_files: true
+          files: |
+            app/build/outputs/apk/release/app-release.apk
+            app/build/outputs/bundle/release/app-release.aab
