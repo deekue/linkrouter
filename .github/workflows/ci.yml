@@ -37,11 +37,23 @@ jobs:
           java-version: '17'
 
       - name: Set up Android SDK (API 36, build-tools 36.0.0)
-        uses: actions/setup-android@v4
-        with:
-          api-level: 36
-          build-tools: 36.0.0
-          overwrite: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          # ubuntu-latest ships the Android SDK preinstalled with ANDROID_HOME
+          # already set. Make sure the tooling is on PATH and that the packages
+          # this project needs exist (sdkmanager --install is a no-op if they
+          # are already present), then accept any outstanding licenses.
+          export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          export ANDROID_SDK_ROOT="$ANDROID_HOME"
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
+          if ! command -v sdkmanager > /dev/null 2>&1; then
+            echo "::error::Android SDK tooling (sdkmanager) not found; ANDROID_HOME=$ANDROID_HOME"
+            exit 1
+          fi
+          sdkmanager --install "platforms;android-36" "build-tools;36.0.0"
+          yes | sdkmanager --licenses
+          sdkmanager --version
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
