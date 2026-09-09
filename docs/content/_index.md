@@ -2,8 +2,9 @@
 date = '2026-09-09T13:10:31Z'
 draft = false
 title = 'LinkRouter'
+description = 'LinkRouter'
 +++
-# LinkRouter (`net.chaosengine.linkrouter`)
+# LinkRouter
 
 A privacy-focused, rule-based URL router for Android: it intercepts `http`/`https` links (as the system default browser) and, per your user-defined rules, strips tracking/query params, rewrites URLs, and forwards them to a user-chosen browser — including private-window launchers for Chrome/Firefox. It is a **router/dispatcher, not a browser**: it never renders pages itself.
 

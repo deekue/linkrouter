@@ -11,3 +11,9 @@ disableKinds:
 markup:
   highlight:
     style: "github-dark"
+params:
+  author: "Daniel Quinlan"
+  info: "LinkRouter"
+  description: "LinkRouter"
+  keywords: "linkrouter,android"
+  colorScheme: "auto"
