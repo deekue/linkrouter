@@ -141,7 +141,7 @@ jobs:
           ls -la "${ANDROID_SDK_ROOT}"
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
 
       - name: Verify release signing secrets
         env:
