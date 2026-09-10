@@ -47,6 +47,9 @@ jobs:
     name: Build signed release + publish GitHub Release
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      id-token: write # Required for GitHub OIDC token minting
+
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -227,3 +230,22 @@ jobs:
             app/build/outputs/apk/release/app-release.apk
             app/build/outputs/bundle/release/app-release.aab
             app-symbols.zip
+
+      # Authenticate via Workload Identity Federation
+      - id: auth
+        name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: 'projects/489729796823/locations/global/workloadIdentityPools/github-actions/providers/github-provider'
+          service_account: 'github-actions-deployer@linkrouter-508201.iam.gserviceaccount.com'
+          # Generates short-lived credentials file compatible with Application Default Credentials (ADC)
+          create_credentials_file: true
+
+      - name: Upload to Google Play
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJson: ${{ steps.auth.outputs.credentials_file_path }}
+          packageName: net.chaosengine.linkrouter
+          releaseFiles: app/build/outputs/bundle/release/*.aab
+          track: internal
+
