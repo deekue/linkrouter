@@ -5,6 +5,8 @@ import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URL
 import java.nio.charset.StandardCharsets
+import java.util.logging.Level
+import java.util.logging.Logger
 
 /**
  * Pure-JVM shortener resolver (fast path for server-side 3xx shorteners).
@@ -41,6 +43,9 @@ object ShortenerResolver {
 
     const val MAX_HOPS = 6
 
+    // JVM-safe logging (no android.* on this file — unit-tested on plain JVM).
+    private val LOG = Logger.getLogger(ShortenerResolver::class.java.name)
+
     private const val BODY_CAP = 64 * 1024
     private const val TIMEOUT = 6000
     private const val UA = "Mozilla/5.0 (Linux; Android 14; LinkRouter/1.0 resolver)"
@@ -57,6 +62,12 @@ object ShortenerResolver {
                 fetcher.fetch(current)
             } catch (e: Exception) {
                 return Result.Error(current, hops, e.message ?: e.javaClass.name)
+            }
+
+            // A 3xx without a Location header is not a usable redirect: bailing
+            // out to body inspection would misclassify it as Resolved.
+            if (resp.status in 300..399 && resp.location == null) {
+                return Result.Error(current, hops, "HTTP ${resp.status} without Location header")
             }
 
             if (resp.status in 300..399 && resp.location != null) {
@@ -110,6 +121,9 @@ object ShortenerResolver {
                 instanceFollowRedirects = false
                 setRequestProperty("User-Agent", UA)
                 setRequestProperty("Accept", "text/html,application/xhtml+xml")
+                // Refuse compressed bodies: a gzip'd response would corrupt the
+                // interstitial body heuristics (meta/JS detection) downstream.
+                setRequestProperty("Accept-Encoding", "identity")
                 connectTimeout = TIMEOUT
                 readTimeout = TIMEOUT
                 requestMethod = "GET"
@@ -117,6 +131,7 @@ object ShortenerResolver {
             return try {
                 val status = conn.responseCode
                 val location = conn.getHeaderField("Location")
+                LOG.log(Level.FINE, "Shortener fetch: url=$url status=$status location=$location")
                 val body = readBody(conn)
                 HopResponse(status, location, body)
             } finally {

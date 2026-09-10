@@ -80,6 +80,8 @@
     <string name="add_shortener_host">Add shortener host</string>
     <string name="shortener_host">Host (e.g. t.co, www.tiktok.com)</string>
     <string name="shortener_path_prefix">Path prefix (optional, e.g. /t/)</string>
+    <string name="shortener_resolve_failed">Couldn\'t resolve that short link (%1$s). Opened the original.</string>
+    <string name="shortener_resolve_timeout">Short link resolution timed out. Opened the original.</string>
 
     <!-- Query-param filters -->
     <string name="param_filters_title">Param filters</string>

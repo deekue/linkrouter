@@ -1,9 +1,13 @@
 package net.chaosengine.linkrouter
 
+import com.sun.net.httpserver.HttpServer
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.net.InetSocketAddress
+import java.nio.charset.StandardCharsets
 
 class ShortenerResolverTest {
 
@@ -157,5 +161,79 @@ class ShortenerResolverTest {
         val error = result as ShortenerResolver.Result.Error
         assertEquals("https://t.co/boom", error.url)
         assertNotNull(error.message)
+    }
+}
+
+/**
+ * [ShortenerResolver.RealFetcher] against a local [HttpServer] on 127.0.0.1
+ * (ephemeral port) — exercises the pure-JVM fetch path end-to-end, including
+ * relative redirects, an interstitial body, and a 3xx without Location.
+ */
+class RealFetcherTest {
+
+    private lateinit var server: HttpServer
+    private var port: Int = 0
+
+    private fun startServer() {
+        server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        server.createContext("/a") { ex -> redirect(ex, "/b", 302) }
+        server.createContext("/b") { ex -> redirect(ex, "/final", 301) }
+        server.createContext("/final") { ex -> respond(ex, 200, "done") }
+        server.createContext("/i") { ex ->
+            respond(ex, 200, "<html><script>window.location.replace('https://x.example/')</script></html>")
+        }
+        server.createContext("/noLoc") { ex ->
+            // 302 with NO Location header (no header set at all).
+            ex.sendResponseHeaders(302, -1)
+            ex.close()
+        }
+        server.start()
+        port = server.address.port
+    }
+
+    private fun redirect(ex: com.sun.net.httpserver.HttpExchange, location: String, status: Int) {
+        ex.responseHeaders.set("Location", location)
+        ex.sendResponseHeaders(status, -1)
+        ex.close()
+    }
+
+    private fun respond(ex: com.sun.net.httpserver.HttpExchange, status: Int, body: String) {
+        val bytes = body.toByteArray(StandardCharsets.UTF_8)
+        ex.sendResponseHeaders(status, bytes.size.toLong())
+        ex.responseBody.use { it.write(bytes) }
+    }
+
+    @After
+    fun tearDown() {
+        server.stop(0)
+    }
+
+    @Test
+    fun `relative redirect chain resolves to final url`() {
+        startServer()
+        val result = ShortenerResolver.resolve("http://127.0.0.1:$port/a", ShortenerResolver.RealFetcher())
+        val resolved = result as ShortenerResolver.Result.Resolved
+        assertEquals("http://127.0.0.1:$port/final", resolved.finalUrl)
+        // Hop count = number of redirects FOLLOWED (a -> b, b -> final), per the
+        // resolver's existing semantics (pinned by the FakeFetcher tests above).
+        assertEquals(2, resolved.hops)
+    }
+
+    @Test
+    fun `js location replace body is an interstitial`() {
+        startServer()
+        val result = ShortenerResolver.resolve("http://127.0.0.1:$port/i", ShortenerResolver.RealFetcher())
+        val interstitial = result as ShortenerResolver.Result.Interstitial
+        assertEquals("http://127.0.0.1:$port/i", interstitial.url)
+    }
+
+    @Test
+    fun `3xx without location header is an error`() {
+        // Regression: previously this fell through to body inspection and could
+        // be misclassified as Resolved.
+        startServer()
+        val result = ShortenerResolver.resolve("http://127.0.0.1:$port/noLoc", ShortenerResolver.RealFetcher())
+        val error = result as ShortenerResolver.Result.Error
+        assertTrue(error.message.contains("Location"))
     }
 }

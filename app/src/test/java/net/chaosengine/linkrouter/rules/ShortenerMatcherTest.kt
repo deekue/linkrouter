@@ -43,6 +43,26 @@ class ShortenerMatcherTest {
     }
 
     @Test
+    fun domain_matches_www_incoming_against_bare_stored() {
+        // www is stripped on BOTH sides, so www.t.co == t.co.
+        assertTrue(ShortenerMatcher.domainMatches("www.t.co", "t.co"))
+        assertTrue(ShortenerMatcher.domainMatches("www.t.co", "www.t.co"))
+    }
+
+    @Test
+    fun domain_matches_subdomain_against_bare_stored() {
+        // Subdomains are intentionally matched (e.g. vm.tiktok.com vs www.tiktok.com).
+        assertTrue(ShortenerMatcher.domainMatches("sub.t.co", "t.co"))
+        assertTrue(ShortenerMatcher.domainMatches("www.sub.t.co", "t.co"))
+    }
+
+    @Test
+    fun domain_rejects_bare_host_against_subdomain_stored() {
+        // "t.co" is not a subdomain of "sub.t.co" (anchored on a dot).
+        assertFalse(ShortenerMatcher.domainMatches("t.co", "sub.t.co"))
+    }
+
+    @Test
     fun domain_rejects_lookalike_suffix() {
         // endsWith must be anchored on a dot: "tiktok.com.evil.com" is not a
         // subdomain of "tiktok.com" (and vice versa).
@@ -91,5 +111,27 @@ class ShortenerMatcherTest {
     fun non_matching_domain_rejects_even_if_path_fits() {
         val h = host("www.tiktok.com", "/t/")
         assertFalse(ShortenerMatcher.matches("evil.com", "/t/abc", h))
+    }
+
+    @Test
+    fun empty_root_path_matches_host_only_row_but_not_prefixed_row() {
+        // https://t.co/ normalizes to path "/": a host-only (null prefix) row
+        // matches any path including "/", but a prefixed row does not.
+        assertTrue(ShortenerMatcher.matches("t.co", "/", host("t.co")))
+        assertFalse(ShortenerMatcher.matches("t.co", "/", host("t.co", "/t/")))
+    }
+
+    @Test
+    fun path_prefix_row_matches_www_subdomain_and_prefix_path() {
+        // Built-in shape: www.tiktok.com + /t/ must match its own www host.
+        val h = host("www.tiktok.com", "/t/")
+        assertTrue(ShortenerMatcher.matches("www.tiktok.com", "/t/ZG123/", h))
+    }
+
+    @Test
+    fun path_prefix_requires_prefix_even_on_www_incoming_host() {
+        val h = host("www.tiktok.com", "/t/")
+        // Same host, but a path outside the prefix is rejected.
+        assertFalse(ShortenerMatcher.matches("www.tiktok.com", "/video", h))
     }
 }

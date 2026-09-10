@@ -393,6 +393,60 @@ class DispatcherActivityTest {
         val started = startedActivities(activity).single()
         assertTrue(isBrowserChooser(started))
         assertEquals(Uri.parse("https://t.co/abc"), started.getParcelableExtra(LinkRouter.EXTRA_URI))
+        // AND the WebView settle failure is visible (never silent).
+        val toast = lastToastText()
+        assertNotNull("web resolver timeout must show a toast", toast)
+        assertTrue(toast!!.contains("timed out"))
+    }
+
+    @Test
+    fun `enabled shortener resolve failure degrades to original and toasts`() {
+        // No rule (original t.co URL flows to the fallback path).
+        AppContainer.ruleRepository = FakeRepository(emptyList())
+        AppContainer.shortenerHostRepository = FakeShortenerRepo(listOf(
+            net.chaosengine.linkrouter.rules.ShortenerHost(id = 1, name = "t.co", host = "t.co", enabled = true, isBuiltIn = true)
+        ))
+        // Fetcher throws → ShortenerResolver.resolve returns Result.Error.
+        AppContainer.shortenerFetcher = ShortenerResolver.Fetcher { throw RuntimeException("connection refused") }
+        AppContainer.browserRegistry = FakeRegistry(context(), null)
+
+        val activity = build("https://t.co/abc")
+        settle(activity)
+
+        // D6: degraded to the ORIGINAL url → no-rule path → chooser.
+        val started = startedActivities(activity).single()
+        assertTrue(isBrowserChooser(started))
+        assertEquals(Uri.parse("https://t.co/abc"), started.getParcelableExtra(LinkRouter.EXTRA_URI))
+        // AND the failure is visible (never silent).
+        val toast = lastToastText()
+        assertNotNull("resolve failure must show a toast", toast)
+        assertTrue(toast!!.contains("Couldn't resolve that short link"))
+    }
+
+    @Test
+    fun `enabled shortener 3xx without location header degrades to original and toasts`() {
+        AppContainer.ruleRepository = FakeRepository(emptyList())
+        AppContainer.shortenerHostRepository = FakeShortenerRepo(listOf(
+            net.chaosengine.linkrouter.rules.ShortenerHost(id = 1, name = "t.co", host = "t.co", enabled = true, isBuiltIn = true)
+        ))
+        // 302 with location == null → Result.Error (regression: previously could
+        // be misclassified as Resolved via body inspection).
+        AppContainer.shortenerFetcher = ShortenerResolver.Fetcher { _ ->
+            ShortenerResolver.HopResponse(302, null, "<html>302</html>")
+        }
+        AppContainer.browserRegistry = FakeRegistry(context(), null)
+
+        val activity = build("https://t.co/abc")
+        settle(activity)
+
+        // D6: degraded to the ORIGINAL url → no-rule path → chooser.
+        val started = startedActivities(activity).single()
+        assertTrue(isBrowserChooser(started))
+        assertEquals(Uri.parse("https://t.co/abc"), started.getParcelableExtra(LinkRouter.EXTRA_URI))
+        // AND the failure is visible (never silent).
+        val toast = lastToastText()
+        assertNotNull("3xx-without-Location failure must show a toast", toast)
+        assertTrue(toast!!.contains("Location"))
     }
 
     // --- path-prefix shortener hosts (M8) ---

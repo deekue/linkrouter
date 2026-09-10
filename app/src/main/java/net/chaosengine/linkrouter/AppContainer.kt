@@ -116,6 +116,10 @@ object AppContainer {
             builtIns.forEach { (id, entry) ->
                 val (host, name, pathPrefix) = entry
                 val prefixLiteral = pathPrefix?.let { "'$it'" } ?: "NULL"
+                // Invariant: the NOT EXISTS guard makes this seed never insert or
+                // overwrite when ANY row with this host exists — enabled or not —
+                // so user-toggled built-ins (enabled = 1) are never touched.
+                // INSERT OR IGNORE on the id is a second belt-and-braces layer.
                 db.execSQL(
                     "INSERT OR IGNORE INTO shortener_hosts " +
                         "(id, name, host, pathPrefix, enabled, priority, isBuiltIn) " +
