@@ -22,11 +22,11 @@ A privacy-focused, rule-based URL router for Android: it intercepts `http`/`http
 - **Local-only** rule and settings storage (Room, app-private storage). No URL history is ever persisted.
 - **No ads, no analytics, no telemetry, no third-party SDKs.**
 - **Only the `INTERNET` permission** is declared (a normal, install-granted permission), and it is exercised **only** if you enable the opt-in "shortener web resolution" feature for one or more hosts — all built-in shortener hosts ship disabled, so a default install makes zero network calls.
-- See [PRIVACY](/repo/privacy) for the full privacy policy.
+- See [PRIVACY](repo/privacy) for the full privacy policy.
 
 ## License
 
-GNU GPL v3 — see [LICENSE](/repo/LICENSE). This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License.
+GNU GPL v3 — see [LICENSE](repo/LICENSE). This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License.
 
 ## Status
 
