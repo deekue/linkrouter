@@ -1,0 +1,23 @@
+{{ define "content" }}
+  {{ partial "home.html" . }}
+
+  {{ if .Content }}
+    <section class="container page">
+      <article>
+        {{ .Content }}
+
+        {{ $version := "unknown" }}
+        {{ with resources.Get "app/build.gradle.kts" }}
+          {{/* Matches: versionName = "1.2.3" or versionName = '1.2.3' */}}
+          {{ $match := findRESubmatch `(?m)^\s*versionName\s*=\s*["']([^"']+)["']` .Content }}
+          {{ if $match }}
+            {{/* Index [0][1] gets the first capture group of the first match */}}
+            {{ $version = index $match 0 1 }}
+          {{ end }}
+        {{ end }}
+        
+        <p>Version: {{ $version }}</p>
+      </article>
+    </section>
+  {{ end }}
+{{ end }}

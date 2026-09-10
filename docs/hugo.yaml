@@ -8,6 +8,32 @@ caches:
 disableKinds:
   - taxonomy
   - term
+
+module:
+  mounts:
+    - source: assets
+      target: assets
+    - source: ../app
+      target: assets/app
+      files:
+      - 'build.gradle.kts'
+
+    - source: static
+      target: static
+    - source: ..
+      target: static/repo
+      files:
+      - 'LICENSE'
+
+    # Mount external Markdown files into your content tree
+    - source: content
+      target: content
+    - source: ..
+      target: content/repo
+      files:
+      - '*.md'
+
+# hugo-coder config
 markup:
   highlight:
     style: "github-dark"
