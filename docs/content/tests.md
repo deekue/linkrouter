@@ -1,6 +1,6 @@
 ---
 date: 2026-09-10
-draft: true
+draft: false
 title: "Feature Test Links"
 description: "Example links to verify each LinkRouter feature end-to-end on a device."
 ---
