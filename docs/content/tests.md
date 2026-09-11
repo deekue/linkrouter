@@ -55,7 +55,7 @@ Enable the relevant host in *Shortener hosts*, then open:
   "Couldn't resolve that short link (redirect loop)" + original opened.
 - Open a short link whose interstitial **times out** in the WebView → toast
   "Short link resolution timed out" + original opened.
-- Observe `adb logcat -s LinkRouter` for the corresponding `Log.w` line.
+- Observe `adb logcat -s DispatcherActivity` for the corresponding `Log.w` line (only with a debug build). 
 
 ---
 
