@@ -10,3 +10,14 @@
 # - Moshi models (rules/, settings/, importexport/ DTOs) use Moshi's Kotlin
 #   reflection-free codegen (KSP) today; if reflection-based models are added,
 #   they will need -keepclassmembers entry points here.
+
+# Strip android.util.Log calls in release builds (DESIGN.md §11: no logging in release).
+# Debug builds are unminified and never use this file, so debug logging is preserved.
+-keep,allowobfuscation class android.util.Log { *; }
+-assumenosideeffects class android.util.Log {
+    public static *** d(...);
+    public static *** e(...);
+    public static *** i(...);
+    public static *** v(...);
+    public static *** w(...);
+}

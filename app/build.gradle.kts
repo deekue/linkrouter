@@ -72,6 +72,9 @@ android {
 
     buildFeatures {
         compose = true
+        // Modern AGP (>= 8.0) does not generate BuildConfig by default; enable it
+        // so DispatcherActivity can reference BuildConfig.DEBUG (DESIGN.md §11).
+        buildConfig = true
     }
 }
 

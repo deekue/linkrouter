@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
+import net.chaosengine.linkrouter.BuildConfig
 import net.chaosengine.linkrouter.browsers.BrowserInfo
 import net.chaosengine.linkrouter.browsers.BrowserRegistry
 import net.chaosengine.linkrouter.browsers.StrategyTable
