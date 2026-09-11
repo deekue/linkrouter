@@ -42,6 +42,17 @@ class DispatcherActivity : Activity() {
 
     companion object {
         private const val TAG = "DispatcherActivity"
+
+        /**
+         * Nested shortener resolution bound (redirector → shortener → final):
+         * at most ONE shortener resolution may follow a redirector unwrap.
+         * Enforced structurally (no loop construct) by the `finalUrl == null`
+         * guard (a successful incoming shortener is never routed through the
+         * nested path) plus the `unwrapped != matchCandidate` guard (each
+         * shortener chain is separately bounded by [ShortenerResolver.MAX_HOPS]
+         * and its `seen` set). No unbounded redirector↔shortener alternation.
+         */
+        private const val MAX_NESTED_DEPTH = 1
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -109,67 +120,34 @@ class DispatcherActivity : Activity() {
             // D9 shortener resolution: if the incoming host is an enabled shortener host,
             // follow its redirects (pure-JVM fast path) to the final URL. On success we
             // BOTH match AND launch the final URL. Non-resolvable results degrade
-            // gracefully to the original URL (D6: never silently pretend).
-                        var finalUrl: String? = null
-            if (shortenerHosts.isNotEmpty()) {
-                val isShortener = shortenerHosts.any {
-                    ShortenerMatcher.matches(parsed.host, parsed.path, it)
-                }
-                if (isShortener) {
-                    val result = withContext(Dispatchers.IO) {
-                        ShortenerResolver.resolve(original.toString(), AppContainer.shortenerFetcher)
-                    }
-                    when (result) {
-                        is ShortenerResolver.Result.Resolved -> {
-                            finalUrl = result.finalUrl
-                            Log.i(TAG, "Shortener resolved $original -> ${result.finalUrl} (hops=${result.hops})")
-                        }
-                        // M7 (D9): a JS/<meta refresh>/Cloudflare interstitial the
-                        // pure-JVM fast path cannot settle → escalate to the
-                        // ephemeral resolution WebView, which returns the final URL.
-                        // On failure/timeout it returns null → finalUrl stays null →
-                        // degrade to the original URL (D6: never silently pretend).
-                        is ShortenerResolver.Result.Interstitial -> {
-                            val web = withContext(Dispatchers.Main) {
-                                AppContainer.shortenerWebResolver.resolve(this@DispatcherActivity, original.toString())
-                            }
-                            if (web != null) {
-                                finalUrl = web
-                                Log.i(TAG, "Shortener resolved (WebView) $original -> $web (hops=${result.hops})")
-                            } else {
-                                Log.w(TAG, "Shortener WebView settle failed/timed out for $original")
-                                // Runs on the main thread (dispatchScope = Main); toast directly.
-                                toast(getString(R.string.shortener_resolve_timeout))
-                            }
-                        }
-                        // Loop / MaxHops / Rejected / Error are genuine failures a
-                        // WebView won't safely fix — degrade to the original URL
-                        // (D6), with a visible toast so it is never silent.
-                        is ShortenerResolver.Result.Error -> {
-                            Log.w(TAG, "Shortener resolve failed for $original: ${result.message}")
-                            toast(getString(R.string.shortener_resolve_failed, result.message))
-                        }
-                        is ShortenerResolver.Result.Loop -> {
-                            Log.w(TAG, "Shortener resolve failed for $original: redirect loop")
-                            toast(getString(R.string.shortener_resolve_failed, "redirect loop"))
-                        }
-                        is ShortenerResolver.Result.MaxHops -> {
-                            Log.w(TAG, "Shortener resolve failed for $original: too many redirects")
-                            toast(getString(R.string.shortener_resolve_failed, "too many redirects"))
-                        }
-                        is ShortenerResolver.Result.Rejected -> {
-                            Log.w(TAG, "Shortener resolve failed for $original: non-http(s) target ${result.url}")
-                            toast(getString(R.string.shortener_resolve_failed, "non-http(s) target: ${result.url}"))
-                        }
-                    }
+            // gracefully (D6: never silently pretend).
+            var finalUrl: String? = null
+            var matchCandidate = original.toString()
+
+            // 2a — INCOMING shortener (identical behavior to before, now via the
+            // shared helper so the nested path below has identical semantics).
+            val incoming = resolveShortener(matchCandidate, shortenerHosts)
+            if (incoming != null) { finalUrl = incoming; matchCandidate = incoming }
+
+            // 2b — NEW (nested shortener resolution): if the redirector's unwrapped
+            // DESTINATION is itself an enabled shortener host, resolve it too.
+            // Exactly ONE nesting level (MAX_NESTED_DEPTH): the finalUrl == null
+            // guard means a successful incoming shortener is never re-fetched
+            // through this path, and the unwrapped != matchCandidate guard means we
+            // only resolve when a REAL unwrap happened (degrades to the redirector
+            // destination's current behavior on inner failure — same as before).
+            if (finalUrl == null) {
+                @Suppress("DEPRECATION")
+                val unwrapped = RedirectResolver.resolve(matchCandidate, formats)
+                    ?: RuleEngine.unwrapRedirect(matchCandidate)
+                if (unwrapped != null && unwrapped != matchCandidate) {
+                    matchCandidate = unwrapped
+                    val inner = resolveShortener(matchCandidate, shortenerHosts)
+                    if (inner != null) finalUrl = inner
                 }
             }
 
-            @Suppress("DEPRECATION")
-            val matchUrl = finalUrl
-                ?: RedirectResolver.resolve(original.toString(), formats)
-                ?: RuleEngine.unwrapRedirect(original.toString())
-                ?: original.toString()
+            val matchUrl = finalUrl ?: matchCandidate
             val matchParsed = RuleEngine.normalize(matchUrl) ?: parsed
             val rule: Rule? = RuleEngine.resolve(rules, matchParsed)
 
@@ -233,6 +211,94 @@ class DispatcherActivity : Activity() {
                 }
             }
             finish()
+        }
+    }
+
+    /**
+     * Resolve [url] through the shortener fast path (and, when the fast path
+     * hits a JS/<meta refresh> interstitial it cannot settle, the ephemeral
+     * resolution WebView). Returns the final URL on success, or null to
+     * degrade (D6: never silently pretend).
+     *
+     * The INCOMING shortener ([resolveShortener] call #1 in [dispatch]) and the
+     * DESTINATION-after-redirector-unwrap (call #2, the nested resolution)
+     * share this exact helper so both passes have identical fast-path /
+     * interstitial-escalation / degrade semantics. Each call is separately
+     * bounded by [ShortenerResolver.MAX_HOPS] and its `seen` set; the overall
+     * nesting bound is [MAX_NESTED_DEPTH].
+     */
+    private suspend fun resolveShortener(
+        url: String,
+        hosts: List<net.chaosengine.linkrouter.rules.ShortenerHost>,
+    ): String? {
+        if (hosts.isEmpty()) return null
+        val parsed = RuleEngine.normalize(url) ?: return null  // non-http(s) → not a shortener
+        if (!hosts.any { ShortenerMatcher.matches(parsed.host, parsed.path, it) }) return null
+
+        val result = withContext(Dispatchers.IO) {
+            ShortenerResolver.resolve(url, AppContainer.shortenerFetcher)
+        }
+        return when (result) {
+            is ShortenerResolver.Result.Resolved -> {
+                if (BuildConfig.DEBUG) {
+                    Log.i(TAG, "Shortener resolved $url -> ${result.finalUrl} (hops=${result.hops})")
+                }
+                result.finalUrl
+            }
+            // M7 (D9): a JS/<meta refresh>/Cloudflare interstitial the pure-JVM
+            // fast path cannot settle → escalate to the ephemeral resolution
+            // WebView, which returns the final URL. On failure/timeout it
+            // returns null → finalUrl stays null → degrade (D6: never silently
+            // pretend).
+            is ShortenerResolver.Result.Interstitial -> {
+                val web = withContext(Dispatchers.Main) {
+                    AppContainer.shortenerWebResolver.resolve(this@DispatcherActivity, url)
+                }
+                if (web != null) {
+                    if (BuildConfig.DEBUG) {
+                        Log.i(TAG, "Shortener resolved (WebView) $url -> $web (hops=${result.hops})")
+                    }
+                    web
+                } else {
+                    if (BuildConfig.DEBUG) {
+                        Log.w(TAG, "Shortener WebView settle failed/timed out for $url")
+                    }
+                    // Runs on the main thread (dispatchScope = Main); toast directly.
+                    toast(getString(R.string.shortener_resolve_timeout))
+                    null
+                }
+            }
+            // Loop / MaxHops / Rejected / Error are genuine failures a WebView
+            // won't safely fix — degrade (D6), with a visible toast so it is
+            // never silent.
+            is ShortenerResolver.Result.Error -> {
+                if (BuildConfig.DEBUG) {
+                    Log.w(TAG, "Shortener resolve failed for $url: ${result.message}")
+                }
+                toast(getString(R.string.shortener_resolve_failed, result.message))
+                null
+            }
+            is ShortenerResolver.Result.Loop -> {
+                if (BuildConfig.DEBUG) {
+                    Log.w(TAG, "Shortener resolve failed for $url: redirect loop")
+                }
+                toast(getString(R.string.shortener_resolve_failed, "redirect loop"))
+                null
+            }
+            is ShortenerResolver.Result.MaxHops -> {
+                if (BuildConfig.DEBUG) {
+                    Log.w(TAG, "Shortener resolve failed for $url: too many redirects")
+                }
+                toast(getString(R.string.shortener_resolve_failed, "too many redirects"))
+                null
+            }
+            is ShortenerResolver.Result.Rejected -> {
+                if (BuildConfig.DEBUG) {
+                    Log.w(TAG, "Shortener resolve failed for $url: non-http(s) target ${result.url}")
+                }
+                toast(getString(R.string.shortener_resolve_failed, "non-http(s) target: ${result.url}"))
+                null
+            }
         }
     }
 

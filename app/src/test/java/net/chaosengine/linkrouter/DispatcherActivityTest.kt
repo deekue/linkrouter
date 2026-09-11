@@ -142,6 +142,26 @@ class DispatcherActivityTest {
         override suspend fun allEnabled(): List<net.chaosengine.linkrouter.rules.QueryParamFilter> = filters
     }
 
+    /** Google redirect format fixture (reused across the nested-resolution tests). */
+    private fun googleFormat(openReal: Boolean = false) =
+        net.chaosengine.linkrouter.rules.RedirectFormat(
+            id = net.chaosengine.linkrouter.rules.RedirectFormat.BUILT_IN_ID,
+            name = "Google",
+            pattern = "google.com/url",
+            matchType = net.chaosengine.linkrouter.rules.MatchType.PATH_PREFIX,
+            extractType = net.chaosengine.linkrouter.rules.ExtractType.QUERY_PARAM,
+            extractTarget = "q",
+            enabled = true,
+            priority = 1000,
+            isBuiltIn = true,
+            openRealDestination = openReal,
+        )
+
+    /** Enabled bit.ly shortener host fixture (nested-resolution tests). */
+    private val bitLy = net.chaosengine.linkrouter.rules.ShortenerHost(
+        id = 42, name = "bit.ly", host = "bit.ly", enabled = true, isBuiltIn = true,
+    )
+
     /**
      * M7 fake: resolves synchronously to a fixed final URL (or null) without
      * launching any activity. [calls] records each invocation so tests can assert
@@ -851,5 +871,146 @@ class DispatcherActivityTest {
 
         val started = startedActivities(activity).single()
         assertEquals("org.example.browser", started.`package`)
+    }
+
+    // --- nested shortener resolution ---
+
+    @Test
+    fun `redirector wrapping shortener resolves inner shortener and launches final url`() {
+        AppContainer.ruleRepository = FakeRepository(listOf(rule("org.example.browser"))) // pattern example.com
+        AppContainer.redirectFormatRepository = FakeFormatRepository(listOf(googleFormat(openReal = false)))
+        AppContainer.shortenerHostRepository = FakeShortenerRepo(listOf(bitLy))
+        val fetchCalls = mutableListOf<String>()
+        AppContainer.shortenerFetcher = ShortenerResolver.Fetcher { url ->
+            fetchCalls.add(url)
+            when (url) {
+                "https://bit.ly/adhdlist" -> ShortenerResolver.HopResponse(302, "https://example.com/page", "")
+                else -> ShortenerResolver.HopResponse(200, null, "")
+            }
+        }
+        AppContainer.browserRegistry = FakeRegistry(context(), browser("org.example.browser"))
+
+        val activity = build("https://www.google.com/url?q=https%3A%2F%2Fbit.ly%2Fadhdlist")
+        settle(activity)
+
+        assertEquals(listOf("https://bit.ly/adhdlist", "https://example.com/page"), fetchCalls)
+        val started = startedActivities(activity).single()
+        assertEquals(Uri.parse("https://example.com/page"), started.data)
+        assertEquals("org.example.browser", started.`package`)
+        assertTrue(started.getBooleanExtra(LinkRouter.EXTRA_HANDLED, false))
+    }
+
+    @Test
+    fun `redirector wrapping shortener interstitial resolves via web resolver`() {
+        AppContainer.ruleRepository = FakeRepository(listOf(rule("org.example.browser"))) // pattern example.com
+        AppContainer.redirectFormatRepository = FakeFormatRepository(listOf(googleFormat(openReal = false)))
+        AppContainer.shortenerHostRepository = FakeShortenerRepo(listOf(bitLy))
+        // Fast path on the INNER url: a 200 page whose body triggers an INTERSTITIAL.
+        AppContainer.shortenerFetcher = ShortenerResolver.Fetcher { _ ->
+            ShortenerResolver.HopResponse(200, null, "<html><script>location.replace('https://example.com/page')</script></html>")
+        }
+        val web = FakeWebResolver("https://example.com/page")
+        AppContainer.shortenerWebResolver = web
+        AppContainer.browserRegistry = FakeRegistry(context(), browser("org.example.browser"))
+
+        val activity = build("https://www.google.com/url?q=https%3A%2F%2Fbit.ly%2Fadhdlist")
+        settle(activity)
+
+        // The web resolver was consulted with the INNER url (not the wrapper).
+        assertTrue("web resolver should be consulted on interstitial", web.calls.isNotEmpty())
+        assertEquals("https://bit.ly/adhdlist", web.calls.first())
+
+        val started = startedActivities(activity).single()
+        assertEquals(Uri.parse("https://example.com/page"), started.data)
+        assertEquals("org.example.browser", started.`package`)
+        assertTrue(started.getBooleanExtra(LinkRouter.EXTRA_HANDLED, false))
+    }
+
+    @Test
+    fun `redirector wrapping non-shortener does not trigger inner resolution`() {
+        AppContainer.ruleRepository = FakeRepository(listOf(rule("org.example.browser"))) // pattern example.com
+        AppContainer.redirectFormatRepository = FakeFormatRepository(listOf(googleFormat(openReal = false)))
+        AppContainer.shortenerHostRepository = FakeShortenerRepo(listOf(bitLy))
+        val fetchCalls = mutableListOf<String>()
+        AppContainer.shortenerFetcher = ShortenerResolver.Fetcher { url ->
+            fetchCalls.add(url)
+            ShortenerResolver.HopResponse(302, "https://example.com/elsewhere", "")
+        }
+        AppContainer.browserRegistry = FakeRegistry(context(), browser("org.example.browser"))
+
+        val wrapper = "https://www.google.com/url?q=https%3A%2F%2Fexample.com%2Fpage"
+        val activity = build(wrapper)
+        settle(activity)
+
+        // Destination example.com is NOT an enabled shortener → no inner resolution.
+        assertEquals("resolver must not be consulted for non-shortener destinations", emptyList<String>(), fetchCalls)
+        // Current redirector behavior retained (openRealDestination=false → wrapper).
+        val started = startedActivities(activity).single()
+        assertEquals(Uri.parse(wrapper), started.data)
+        assertEquals("org.example.browser", started.`package`)
+        assertTrue(started.getBooleanExtra(LinkRouter.EXTRA_HANDLED, false))
+    }
+
+    @Test
+    fun `redirector wrapping failing shortener degrades and toasts`() {
+        AppContainer.ruleRepository = FakeRepository(emptyList()) // degrade to fallback
+        AppContainer.redirectFormatRepository = FakeFormatRepository(listOf(googleFormat(openReal = false)))
+        AppContainer.shortenerHostRepository = FakeShortenerRepo(listOf(bitLy))
+        // INNER fetch: 302 to a non-http(s) target → Result.Rejected.
+        val fetchCalls = mutableListOf<String>()
+        AppContainer.shortenerFetcher = ShortenerResolver.Fetcher { url ->
+            fetchCalls.add(url)
+            if (url == "https://bit.ly/adhdlist") ShortenerResolver.HopResponse(302, "tel:+12345", "")
+            else ShortenerResolver.HopResponse(200, null, "")
+        }
+        AppContainer.browserRegistry = FakeRegistry(context(), null)
+
+        val wrapper = "https://www.google.com/url?q=https%3A%2F%2Fbit.ly%2Fadhdlist"
+        val activity = build(wrapper)
+        settle(activity)
+
+        // The inner resolution WAS attempted and rejected…
+        assertEquals(listOf("https://bit.ly/adhdlist"), fetchCalls)
+        // The failure is visible (never silent).
+        val toast = lastToastText()
+        assertNotNull("inner resolve failure must show a toast", toast)
+        assertTrue(toast!!.contains("non-http(s)"))
+        // …and behavior degrades exactly like the current redirector path
+        // (no rule match → chooser carrying the wrapper, openRealDestination=false).
+        val started = startedActivities(activity).single()
+        assertTrue(isBrowserChooser(started))
+        assertEquals(Uri.parse(wrapper), started.getParcelableExtra(LinkRouter.EXTRA_URI))
+    }
+
+    @Test
+    fun `incoming shortener failure is not re-fetched via nested path`() {
+        AppContainer.ruleRepository = FakeRepository(emptyList()) // degrade to fallback
+        AppContainer.redirectFormatRepository = FakeFormatRepository(emptyList()) // no formats
+        AppContainer.shortenerHostRepository = FakeShortenerRepo(listOf(
+            net.chaosengine.linkrouter.rules.ShortenerHost(id = 1, name = "t.co", host = "t.co", enabled = true, isBuiltIn = true)
+        ))
+        // Fetcher that throws → Result.Error. Count calls: the depth-cap guard
+        // (finalUrl == null + unwrapped != matchCandidate) must prevent any
+        // second fetch of the same failing shortener via the nested path.
+        val fetchCalls = mutableListOf<String>()
+        AppContainer.shortenerFetcher = ShortenerResolver.Fetcher { url ->
+            fetchCalls.add(url)
+            throw RuntimeException("connection refused")
+        }
+        AppContainer.browserRegistry = FakeRegistry(context(), null)
+
+        val activity = build("https://t.co/abc")
+        settle(activity)
+
+        assertEquals("exactly ONE fetcher call (no double-resolution)", listOf("https://t.co/abc"), fetchCalls)
+        // Exactly one failure toast (the incoming pass) — the nested path never
+        // runs, so ShadowToast's latest toast is the single failure toast.
+        val toast = lastToastText()
+        assertNotNull("resolve failure must show a toast", toast)
+        assertTrue(toast!!.contains("connection refused"))
+        // Degraded to the original → chooser.
+        val started = startedActivities(activity).single()
+        assertTrue(isBrowserChooser(started))
+        assertEquals(Uri.parse("https://t.co/abc"), started.getParcelableExtra(LinkRouter.EXTRA_URI))
     }
 }
