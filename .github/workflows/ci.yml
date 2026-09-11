@@ -107,6 +107,14 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
 
+      - name: Cache Gradle configuration cache
+        uses: actions/cache@v4
+        with:
+          path: .gradle/configuration-cache
+          # NOTE: add gradle/libs.versions.toml and init.gradle to hashFiles if/when introduced
+          key: cc-${{ runner.os }}-${{ hashFiles('**/*.gradle.kts', '**/gradle.properties') }}
+          restore-keys: cc-${{ runner.os }}-
+
       - name: Build release (unsigned)
         run: ./gradlew :app:assembleRelease --no-daemon
 

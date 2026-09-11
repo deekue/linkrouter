@@ -177,6 +177,14 @@ jobs:
             -keystore "$GITHUB_WORKSPACE/build/keystore/release.jks" \
             -storepass "$S_PASSWORD"
 
+      - name: Cache Gradle configuration cache
+        uses: actions/cache@v4
+        with:
+          path: .gradle/configuration-cache
+          # NOTE: add gradle/libs.versions.toml and init.gradle to hashFiles if/when introduced
+          key: cc-${{ runner.os }}-${{ hashFiles('**/*.gradle.kts', '**/gradle.properties') }}
+          restore-keys: cc-${{ runner.os }}-
+
       - name: Build signed release APK and AAB
         env:
           RELEASE_KEYSTORE: ${{ github.workspace }}/build/keystore/release.jks
