@@ -43,6 +43,9 @@ android {
     }
 
     buildTypes {
+        debug {
+            applicationIdSuffix = ".debug"
+        }
         release {
             // R8/minify on for release only; debug stays unminified.
             isMinifyEnabled = true
