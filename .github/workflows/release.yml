@@ -206,6 +206,14 @@ jobs:
             ls -lh "$f"
           done
 
+      - name: Upload R8 mapping.txt artifact
+        uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with:
+          name: mapping-release-v${{ steps.version.outputs.version }}
+          path: app/build/outputs/mapping/release/mapping.txt
+          if-no-files-found: warn # only present when isMinifyEnabled (release) produced R8 output
+
       - name: Package unstripped native symbols for Play Console
         shell: bash
         run: |
@@ -237,10 +245,22 @@ jobs:
             app/build/outputs/bundle/release/app-release.aab
             app-symbols.zip
 
-      - name: Debug OIDC Claims
-        uses: steve-todorov/oidc-debugger-action@v1
-        with:
-          audience: '${{ github.server_url }}/${{ github.repository }}'
+      # Dynamically generate the Play Store "What's New" files
+      - name: Generate WhatsNew Files
+        run: |
+          # Create the required destination directory
+          mkdir -p android/distribution/whatsnew
+
+          # Extract the text description from the GitHub Release event
+          cat << 'EOF' > android/distribution/whatsnew/whatsnew-en-US
+          ${{ github.event.release.body }}
+          EOF
+
+          # Optional: Mirror to other fallback language files if needed
+          # cp android/distribution/whatsnew/whatsnew-en-US android/distribution/whatsnew/whatsnew-es-ES
+
+          echo "✅ Successfully generated whatsNew files."
+          cat android/distribution/whatsnew/whatsnew-en-US
 
       # Authenticate via Workload Identity Federation
       - id: auth
@@ -258,5 +278,8 @@ jobs:
           serviceAccountJson: ${{ steps.auth.outputs.credentials_file_path }}
           packageName: net.chaosengine.linkrouter
           releaseFiles: app/build/outputs/bundle/release/*.aab
-          track: internal
+          mappingFile: app/build/outputs/mapping/release/mapping.txt
+          debugSymbols: app-symbols.zip
+          whatsNewDirectory: android/distribution/whatsnew
+          tracks: internal
 
