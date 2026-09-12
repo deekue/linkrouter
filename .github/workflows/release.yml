@@ -67,8 +67,14 @@ jobs:
             echo "::error::Version '$VERSION' does not look like a semantic version (e.g. 0.2.0)"
             exit 1
           fi
+          # Derive versionCode from versionName (e.g. "0.3.0" → 300, "1.2.3" → 1203)
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+          MINOR=${MINOR:-0}
+          PATCH=${PATCH:-0}
+          VERSION_CODE=$(( (MAJOR * 10000) + (MINOR * 100) + PATCH ))
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Tag to create: v$VERSION"
+          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+          echo "Tag to create: v$VERSION (versionCode $VERSION_CODE)"
 
       - name: Set up JDK 21
         uses: actions/setup-java@v6
@@ -191,7 +197,7 @@ jobs:
           RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
           RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
-        run: ./gradlew :app:assembleRelease :app:bundleRelease --no-daemon --stacktrace
+        run: ./gradlew :app:assembleRelease :app:bundleRelease -PVERSION_NAME=${{ steps.version.outputs.version }} -PVERSION_CODE=${{ steps.version.outputs.version_code }} --no-daemon --stacktrace
 
       - name: Verify artifacts exist
         shell: bash
@@ -210,7 +216,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          NATIVE_LIBS_OUT="app/build/intermediates/merged_native_libs/release/mergeReleaseNativeLibs/out"
+          NATIVE_LIBS_OUT="app/build/intermediates/merged_native_libs/release/mergeReleaseNativeLibs/out/lib"
           if [ ! -d "$NATIVE_LIBS_OUT" ]; then
             echo "::warning::No merged native libs found at ${NATIVE_LIBS_OUT}; creating empty symbol zip (no native code in this build)."
             # Keep app-symbols.zip present so fail_on_unmatched_files does not fail the release.
@@ -219,8 +225,8 @@ jobs:
             exit 0
           fi
           cd "$NATIVE_LIBS_OUT"
-          # Play Console expects the symbol zip to contain lib/<abi>/<so> at the root.
-          zip -r -9 app-symbols.zip lib/
+          # Play Console expects the symbol zip to contain <abi>/<so> at the root.
+          zip -r -9 app-symbols.zip ./*
           ls -lh app-symbols.zip
           # Stage the zip at the repo root so the release step can attach it.
           cp app-symbols.zip "$GITHUB_WORKSPACE/app-symbols.zip"
@@ -235,14 +241,32 @@ jobs:
           files: |
             app/build/outputs/apk/release/app-release.apk
             app/build/outputs/bundle/release/app-release.aab
+            app/build/outputs/mapping/release/mapping.txt
             app-symbols.zip
+
+      # Dynamically generate the Play Store "What's New" files
+      - name: Generate WhatsNew Files
+        run: |
+          # Create the required destination directory
+          mkdir -p android/distribution/whatsnew
+
+          # Extract the text description from the GitHub Release event
+          cat << 'EOF' > android/distribution/whatsnew/whatsnew-en-US
+          ${{ github.event.release.body }}
+          EOF
+
+          # Optional: Mirror to other fallback language files if needed
+          # cp android/distribution/whatsnew/whatsnew-en-US android/distribution/whatsnew/whatsnew-es-ES
+
+          echo "✅ Successfully generated whatsNew files."
+          cat android/distribution/whatsnew/whatsnew-en-US
 
       # Authenticate via Workload Identity Federation
       - id: auth
         name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
-          workload_identity_provider: 'projects/489729796823/locations/global/workloadIdentityPools/github-actions/providers/github-provider'
+          workload_identity_provider: 'projects/489729796823/locations/global/workloadIdentityPools/github-actions/providers/github'
           service_account: 'github-actions-deployer@linkrouter-508201.iam.gserviceaccount.com'
           # Generates short-lived credentials file compatible with Application Default Credentials (ADC)
           create_credentials_file: true
@@ -252,6 +276,9 @@ jobs:
         with:
           serviceAccountJson: ${{ steps.auth.outputs.credentials_file_path }}
           packageName: net.chaosengine.linkrouter
-          releaseFiles: app/build/outputs/bundle/release/*.aab
-          track: internal
+          releaseFiles: app/build/outputs/bundle/release/app-release.aab
+          mappingFile: app/build/outputs/mapping/release/mapping.txt
+          debugSymbols: app-symbols.zip
+          whatsNewDirectory: android/distribution/whatsnew
+          tracks: internal
 

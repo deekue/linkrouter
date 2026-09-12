@@ -23,8 +23,8 @@ android {
         applicationId = "net.chaosengine.linkrouter"
         minSdk = 26
         targetSdk = 36
-        versionCode = 201
-        versionName = "0.2.1"
+        versionCode = (project.findProperty("VERSION_CODE") as? String)?.toIntOrNull() ?: 201
+        versionName = (project.findProperty("VERSION_NAME") as? String) ?: "0.2.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
