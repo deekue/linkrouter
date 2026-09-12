@@ -32,6 +32,8 @@ data class ShortenerHostRow(val host: net.chaosengine.linkrouter.rules.Shortener
 
 data class QueryParamFilterRow(val filter: net.chaosengine.linkrouter.rules.QueryParamFilter)
 
+data class HostRewriteRow(val rewrite: net.chaosengine.linkrouter.rules.HostRewrite)
+
 class RulesViewModel(app: Application) : AndroidViewModel(app) {
 
     private val container = AppContainer.get(app)
@@ -41,6 +43,7 @@ class RulesViewModel(app: Application) : AndroidViewModel(app) {
     private val fmtRepo = container.redirectFormatRepository
     private val shortenerRepo = container.shortenerHostRepository
     private val paramFilterRepo = container.queryParamFilterRepository
+    private val hostRewriteRepo = container.hostRewriteRepository
 
     val browsers by lazy { registry.browsers }
 
@@ -73,6 +76,9 @@ class RulesViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _queryParamFilters = mutableStateOf<List<QueryParamFilterRow>>(emptyList())
     val queryParamFilters: List<QueryParamFilterRow> get() = _queryParamFilters.value
+
+    private val _hostRewrites = mutableStateOf<List<HostRewriteRow>>(emptyList())
+    val hostRewrites: List<HostRewriteRow> get() = _hostRewrites.value
 
     init {
         viewModelScope.launch {
@@ -110,6 +116,11 @@ class RulesViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             container.queryParamFilterRepository.observeAll().collect { list ->
                 _queryParamFilters.value = list.map { QueryParamFilterRow(it) }
+            }
+        }
+        viewModelScope.launch {
+            container.hostRewriteRepository.observeAll().collect { list ->
+                _hostRewrites.value = list.map { HostRewriteRow(it) }
             }
         }
     }
@@ -317,6 +328,126 @@ class RulesViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     suspend fun exportShortenerHosts(): List<net.chaosengine.linkrouter.rules.ShortenerHost> = shortenerRepo.all()
+
+    fun importHostRewrites(rewrites: List<net.chaosengine.linkrouter.rules.HostRewrite>) {
+        viewModelScope.launch { hostRewriteRepo.importAll(rewrites) }
+    }
+
+    fun parseHostRewriteJson(json: String): List<net.chaosengine.linkrouter.rules.HostRewrite>? {
+        return try {
+            net.chaosengine.linkrouter.importexport.RuleSerializer.fromHostRewriteJson(json)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    suspend fun exportHostRewrites(): List<net.chaosengine.linkrouter.rules.HostRewrite> = hostRewriteRepo.all()
+
+    /**
+     * Validate a host-rewrite rule's fields up front (pure, no save). Returns
+     * [net.chaosengine.linkrouter.rules.HostRewriteValidator.Result.Valid]
+     * (with optional non-blocking [net.chaosengine.linkrouter.rules.HostRewriteValidator.Result.Valid.warnings])
+     * or [net.chaosengine.linkrouter.rules.HostRewriteValidator.Result.Invalid].
+     * The UI dialog can render [reason]/[warnings] and only call [add]/[edit]
+     * on a [net.chaosengine.linkrouter.rules.HostRewriteValidator.Result.Valid] outcome.
+     */
+    fun validateHostRewrite(
+        matchHost: String,
+        matchType: net.chaosengine.linkrouter.rules.RewriteMatchType,
+        kind: net.chaosengine.linkrouter.rules.RewriteKind,
+        targetHost: String,
+        preserveHostInPath: Boolean,
+    ): net.chaosengine.linkrouter.rules.HostRewriteValidator.Result =
+        net.chaosengine.linkrouter.rules.HostRewriteValidator.validate(
+            matchHost, matchType, kind, targetHost, preserveHostInPath,
+        )
+
+    /**
+     * Create a new rewrite. The fields are validated first; a
+     * [net.chaosengine.linkrouter.rules.HostRewriteValidator.Result.Invalid] result is returned
+     * (and nothing is saved) so the UI can surface the error. On success the
+     * normalized hosts are stored and the result returned (warnings, if any,
+     * are non-blocking and already surfaced in the dialog).
+     */
+    fun add(
+        matchHost: String,
+        matchType: net.chaosengine.linkrouter.rules.RewriteMatchType,
+        kind: net.chaosengine.linkrouter.rules.RewriteKind,
+        targetHost: String,
+        preserveHostInPath: Boolean,
+    ): net.chaosengine.linkrouter.rules.HostRewriteValidator.Result? {
+        val result = net.chaosengine.linkrouter.rules.HostRewriteValidator.validate(
+            matchHost, matchType, kind, targetHost, preserveHostInPath,
+        )
+        if (result is net.chaosengine.linkrouter.rules.HostRewriteValidator.Result.Invalid) return result
+        val valid = result as net.chaosengine.linkrouter.rules.HostRewriteValidator.Result.Valid
+        viewModelScope.launch {
+            hostRewriteRepo.insert(
+                net.chaosengine.linkrouter.rules.HostRewrite(
+                    id = 0,
+                    matchHost = valid.normalizedMatchHost,
+                    matchType = matchType,
+                    kind = kind,
+                    targetHost = valid.normalizedTargetHost,
+                    preserveHostInPath = preserveHostInPath,
+                    enabled = true,
+                    priority = 0,
+                    isBuiltIn = false,
+                )
+            )
+        }
+        return result
+    }
+
+    /**
+     * Update an existing rewrite (built-in rows included: re-targeting is
+     * allowed, only the `isBuiltIn` flag is locked by the repository). Same
+     * validation/gating as [add]: `Invalid` is returned and nothing saved.
+     */
+    fun edit(
+        rewrite: net.chaosengine.linkrouter.rules.HostRewrite,
+    ): net.chaosengine.linkrouter.rules.HostRewriteValidator.Result? {
+        val result = net.chaosengine.linkrouter.rules.HostRewriteValidator.validate(
+            rewrite.matchHost,
+            rewrite.matchType,
+            rewrite.kind,
+            rewrite.targetHost,
+            rewrite.preserveHostInPath,
+        )
+        if (result is net.chaosengine.linkrouter.rules.HostRewriteValidator.Result.Invalid) return result
+        val valid = result as net.chaosengine.linkrouter.rules.HostRewriteValidator.Result.Valid
+        viewModelScope.launch {
+            hostRewriteRepo.update(rewrite.copy(matchHost = valid.normalizedMatchHost, targetHost = valid.normalizedTargetHost))
+        }
+        return result
+    }
+
+    /** Toggle a rewrite's enabled flag. Built-in rows can be disabled. */
+    fun setHostRewriteEnabled(id: Long, enabled: Boolean) {
+        viewModelScope.launch { hostRewriteRepo.setEnabled(id, enabled) }
+    }
+
+    /**
+     * Delete a rewrite. Built-in rows are refused by the repository (deleting
+     * is redirected to disabling), so this is a no-op for those.
+     */
+    fun deleteHostRewrite(id: Long) {
+        viewModelScope.launch { hostRewriteRepo.delete(id) }
+    }
+
+    /** Reorder rewrites to a new top-first id order (two-phase temp-priority). */
+    fun reorderHostRewrites(newTopFirstOrder: List<Long>) {
+        viewModelScope.launch { hostRewriteRepo.reorder(newTopFirstOrder) }
+    }
+
+    /**
+     * Live preview: [sampleUrl] with [rule] applied, or [sampleUrl] unchanged when
+     * the rule does not match (delegates to [net.chaosengine.linkrouter.rules.HostRewriter.preview]).
+     */
+    fun hostRewritePreview(
+        rule: net.chaosengine.linkrouter.rules.HostRewrite,
+        sampleUrl: String,
+    ): String = net.chaosengine.linkrouter.rules.HostRewriter.preview(rule, sampleUrl)
 
     fun setWarnPrivate(enabled: Boolean) {
         settings.setWarnPrivate(enabled)

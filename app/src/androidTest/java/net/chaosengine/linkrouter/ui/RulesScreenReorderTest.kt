@@ -181,6 +181,7 @@ class RulesScreenReorderTest {
             onOpenRedirects = {},
             onOpenShorteners = {},
             onOpenParamFilters = {},
+            onOpenHostRewrites = {},
         )
     }
 

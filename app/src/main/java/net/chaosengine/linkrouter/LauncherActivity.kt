@@ -17,6 +17,7 @@ import net.chaosengine.linkrouter.ui.RulesScreen
 import net.chaosengine.linkrouter.ui.RedirectFormatsScreen
 import net.chaosengine.linkrouter.ui.ShortenerHostsScreen
 import net.chaosengine.linkrouter.ui.QueryParamFiltersScreen
+import net.chaosengine.linkrouter.ui.HostRewritesScreen
 
 /**
  * Normal app icon (DESIGN.md section 3/10) — distinct from the browser role.
@@ -82,6 +83,10 @@ private fun RulesApp(
             vm = vm,
             onBack = { onNavigate("rules") },
         )
+        "rewrites" -> HostRewritesScreen(
+            vm = vm,
+            onBack = { onNavigate("rules") },
+        )
         else -> RulesScreen(
             vm = vm,
             onOpenSettings = { onNavigate("settings") },
@@ -89,6 +94,7 @@ private fun RulesApp(
             onOpenRedirects = { onNavigate("redirects") },
             onOpenShorteners = { onNavigate("shorteners") },
             onOpenParamFilters = { onNavigate("params") },
+            onOpenHostRewrites = { onNavigate("rewrites") },
         )
     }
 }

@@ -91,4 +91,33 @@
     <string name="param_filter_param">Param name (e.g. utm_source)</string>
     <string name="param_filter_host">Host scope (optional, e.g. tiktok.com; empty = all domains)</string>
     <string name="param_filter_all_domains">All domains</string>
+
+    <!-- Shared actions -->
+    <string name="back">Back</string>
+    <string name="edit">Edit</string>
+    <string name="delete">Delete</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+    <string name="move_up">Move up</string>
+    <string name="move_down">Move down</string>
+
+    <!-- Host rewrites -->
+    <string name="host_rewrites_title">Host rewrites</string>
+    <string name="host_rewrites_body">When enabled, LinkRouter reshapes the URL it launches (swaps the host, or rewrites the path) to match your rules. It never affects which rule matches.</string>
+    <string name="add_host_rewrite">Add host rewrite</string>
+    <string name="edit_host_rewrite">Edit host rewrite</string>
+    <string name="host_rewrite_match_host">Match host</string>
+    <string name="host_rewrite_match_type">Match type</string>
+    <string name="host_rewrite_kind">Kind</string>
+    <string name="host_rewrite_target_host">Target host</string>
+    <string name="host_rewrite_preserve_host">Prepend original host</string>
+    <string name="host_rewrite_preserve_hint">Only applies to path-prefix rewrites: prepend the incoming host to the original path (e.g. nytimes.com/… → archive.md/nytimes.com/…).</string>
+    <string name="host_rewrite_enabled">Enabled</string>
+    <string name="host_rewrite_delete_disabled">Built-in rule — delete is disabled. Disable it, or edit it, instead.</string>
+    <string name="host_rewrite_warnings">Warnings</string>
+    <string name="rewrite_match_exact_host">Exact host</string>
+    <string name="rewrite_match_exact_www">Exact host (www significant)</string>
+    <string name="rewrite_match_subdomain">Subdomain</string>
+    <string name="rewrite_kind_host_swap">Host swap</string>
+    <string name="rewrite_kind_path_prefix">Path prefix rewrite</string>
 </resources>

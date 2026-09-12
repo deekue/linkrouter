@@ -49,6 +49,7 @@ class RulesViewModelTest {
         override fun redirectFormatDao(): net.chaosengine.linkrouter.rules.RedirectFormatDao = NoopFormatDao
         override fun shortenerHostDao(): net.chaosengine.linkrouter.rules.ShortenerHostDao = NoopShortenerHostDao
         override fun queryParamFilterDao(): net.chaosengine.linkrouter.rules.QueryParamFilterDao = NoopQueryParamFilterDao
+        override fun hostRewriteDao(): net.chaosengine.linkrouter.rules.HostRewriteDao = NoopHostRewriteDao
         override fun clearAllTables() {}
         override fun createInvalidationTracker(): androidx.room.InvalidationTracker =
             androidx.room.InvalidationTracker(this, "rules")
@@ -100,6 +101,21 @@ class RulesViewModelTest {
             override suspend fun deleteById(id: Long) {}
             override suspend fun deleteNonBuiltIn() {}
             override suspend fun builtIns(): List<net.chaosengine.linkrouter.rules.QueryParamFilterEntity> = emptyList()
+            override suspend fun count(): Int = 0
+        }
+
+        private object NoopHostRewriteDao : net.chaosengine.linkrouter.rules.HostRewriteDao {
+            override fun observeAll(): Flow<List<net.chaosengine.linkrouter.rules.HostRewriteEntity>> =
+                kotlinx.coroutines.flow.emptyFlow()
+            override fun observeEnabled(): Flow<List<net.chaosengine.linkrouter.rules.HostRewriteEntity>> =
+                kotlinx.coroutines.flow.emptyFlow()
+            override suspend fun all(): List<net.chaosengine.linkrouter.rules.HostRewriteEntity> = emptyList()
+            override suspend fun allEnabled(): List<net.chaosengine.linkrouter.rules.HostRewriteEntity> = emptyList()
+            override suspend fun upsert(entity: net.chaosengine.linkrouter.rules.HostRewriteEntity): Long = 0L
+            override suspend fun update(entity: net.chaosengine.linkrouter.rules.HostRewriteEntity) {}
+            override suspend fun deleteById(id: Long) {}
+            override suspend fun deleteNonBuiltIn() {}
+            override suspend fun builtIns(): List<net.chaosengine.linkrouter.rules.HostRewriteEntity> = emptyList()
             override suspend fun count(): Int = 0
         }
 

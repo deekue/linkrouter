@@ -45,6 +45,7 @@ class DispatcherActivityTest {
         override fun redirectFormatDao(): net.chaosengine.linkrouter.rules.RedirectFormatDao = NoopFormatDao
         override fun shortenerHostDao(): net.chaosengine.linkrouter.rules.ShortenerHostDao = NoopShortenerHostDao
         override fun queryParamFilterDao(): net.chaosengine.linkrouter.rules.QueryParamFilterDao = NoopQueryParamFilterDao
+        override fun hostRewriteDao(): net.chaosengine.linkrouter.rules.HostRewriteDao = NoopHostRewriteDao
         override fun clearAllTables() {}
         override fun createInvalidationTracker(): androidx.room.InvalidationTracker =
             androidx.room.InvalidationTracker(this, "rules")
@@ -99,6 +100,21 @@ class DispatcherActivityTest {
             override suspend fun count(): Int = 0
         }
 
+        private object NoopHostRewriteDao : net.chaosengine.linkrouter.rules.HostRewriteDao {
+            override fun observeAll(): kotlinx.coroutines.flow.Flow<List<net.chaosengine.linkrouter.rules.HostRewriteEntity>> =
+                kotlinx.coroutines.flow.emptyFlow()
+            override fun observeEnabled(): kotlinx.coroutines.flow.Flow<List<net.chaosengine.linkrouter.rules.HostRewriteEntity>> =
+                kotlinx.coroutines.flow.emptyFlow()
+            override suspend fun all(): List<net.chaosengine.linkrouter.rules.HostRewriteEntity> = emptyList()
+            override suspend fun allEnabled(): List<net.chaosengine.linkrouter.rules.HostRewriteEntity> = emptyList()
+            override suspend fun upsert(entity: net.chaosengine.linkrouter.rules.HostRewriteEntity): Long = 0L
+            override suspend fun update(entity: net.chaosengine.linkrouter.rules.HostRewriteEntity) {}
+            override suspend fun deleteById(id: Long) {}
+            override suspend fun deleteNonBuiltIn() {}
+            override suspend fun builtIns(): List<net.chaosengine.linkrouter.rules.HostRewriteEntity> = emptyList()
+            override suspend fun count(): Int = 0
+        }
+
         private object NoopDao : net.chaosengine.linkrouter.rules.RuleDao {
             override fun observeOrdered(): kotlinx.coroutines.flow.Flow<List<net.chaosengine.linkrouter.rules.RuleEntity>> =
                 kotlinx.coroutines.flow.emptyFlow()
@@ -140,6 +156,10 @@ class DispatcherActivityTest {
 
     private class FakeParamFilterRepo(private val filters: List<net.chaosengine.linkrouter.rules.QueryParamFilter>) : net.chaosengine.linkrouter.rules.QueryParamFilterRepository(RoomlessDb()) {
         override suspend fun allEnabled(): List<net.chaosengine.linkrouter.rules.QueryParamFilter> = filters
+    }
+
+    private class FakeHostRewriteRepo(private val rewrites: List<net.chaosengine.linkrouter.rules.HostRewrite>) : net.chaosengine.linkrouter.rules.HostRewriteRepository(RoomlessDb()) {
+        override suspend fun allEnabled(): List<net.chaosengine.linkrouter.rules.HostRewrite> = rewrites
     }
 
     /** Google redirect format fixture (reused across the nested-resolution tests). */
@@ -237,6 +257,9 @@ class DispatcherActivityTest {
         AppContainer.shortenerHostRepository = FakeShortenerRepo(emptyList())
         // M9 default: no filters → no stripping, so existing tests are unchanged.
         AppContainer.queryParamFilterRepository = FakeParamFilterRepo(emptyList())
+        // P2 default: no host rewrites → no rewriting (noop dao), so existing
+        // tests are unchanged.
+        AppContainer.hostRewriteRepository = net.chaosengine.linkrouter.rules.HostRewriteRepository(RoomlessDb())
         // Safe default: no-redirect fake fetcher so no test ever hits the real
         // network (no shortener host is enabled by default in the fake repo).
         AppContainer.shortenerFetcher = ShortenerResolver.Fetcher { _ -> ShortenerResolver.HopResponse(200, null, "") }
@@ -632,6 +655,144 @@ class DispatcherActivityTest {
         assertEquals(Uri.parse("https://example.com/page?_t=8"), started.data)
     }
 
+    // --- host rewrite (P2) ---
+
+    /** HOST_SWAP rewrite fixture: [matchHost] → [targetHost]. */
+    private fun rewrite(matchHost: String, targetHost: String) =
+        net.chaosengine.linkrouter.rules.HostRewrite(
+            id = 101,
+            matchHost = matchHost,
+            matchType = net.chaosengine.linkrouter.rules.RewriteMatchType.EXACT_HOST,
+            kind = net.chaosengine.linkrouter.rules.RewriteKind.HOST_SWAP,
+            targetHost = targetHost,
+            enabled = true,
+        )
+
+    @Test
+    fun `host rewrite reshapes the launched url while routing matched the original host`() {
+        // A routing rule for x.com (NOT twitter.com) — rule matching is
+        // unaffected by the rewrite; only the LAUNCHED url is reshaped (Q1).
+        AppContainer.ruleRepository = FakeRepository(listOf(
+            Rule(
+                id = 1,
+                pattern = "x.com",
+                matchType = net.chaosengine.linkrouter.rules.MatchType.EXACT_HOST,
+                targetPackage = "org.example.browser",
+                openMode = OpenMode.NORMAL,
+                enabled = true,
+                priority = 1,
+            )
+        ))
+        AppContainer.hostRewriteRepository = FakeHostRewriteRepo(listOf(rewrite("x.com", "twitter.com")))
+        AppContainer.browserRegistry = FakeRegistry(context(), browser("org.example.browser"))
+
+        val activity = build("https://x.com/page")
+        settle(activity)
+
+        val started = startedActivities(activity).single()
+        assertEquals("org.example.browser", started.`package`)
+        // Route matched via the x.com rule; the launched url carries the rewritten host.
+        assertEquals(Uri.parse("https://twitter.com/page"), started.data)
+        assertTrue(started.getBooleanExtra(LinkRouter.EXTRA_HANDLED, false))
+    }
+
+    @Test
+    fun `host rewrite still applies when no routing rule matches`() {
+        // No routing rule → fallback FALLBACK_BROWSER. The rewritten URL must
+        // still reach the fallback browser (rewrite shapes the launch,
+        // independent of rule matching).
+        AppContainer.ruleRepository = FakeRepository(emptyList())
+        AppContainer.hostRewriteRepository = FakeHostRewriteRepo(listOf(rewrite("x.com", "twitter.com")))
+        AppContainer.settings.setFallbackMode(FallbackMode.FALLBACK_BROWSER)
+        AppContainer.settings.setFallbackBrowser("org.example.browser")
+        AppContainer.browserRegistry = FakeRegistry(context(), browser("org.example.browser"))
+
+        val activity = build("https://x.com/page")
+        settle(activity)
+
+        val started = startedActivities(activity).single()
+        assertEquals("org.example.browser", started.`package`)
+        assertEquals(Uri.parse("https://twitter.com/page"), started.data)
+        assertTrue(started.getBooleanExtra(LinkRouter.EXTRA_HANDLED, false))
+    }
+
+    @Test
+    fun `host rewrite then param filter apply in order with query order intact`() {
+        // Order-sensitive proof: the filter is scoped to newhost.com, so it
+        // can only match AFTER the rewrite (x.com → newhost.com). Stripping a
+        // middle param proves the remaining query keeps its order (a→c).
+        AppContainer.ruleRepository = FakeRepository(listOf(rule("org.example.browser"))) // example.com
+        AppContainer.hostRewriteRepository = FakeHostRewriteRepo(listOf(rewrite("example.com", "newhost.com")))
+        AppContainer.queryParamFilterRepository = FakeParamFilterRepo(listOf(
+            net.chaosengine.linkrouter.rules.QueryParamFilter(
+                id = -51, name = "utm_a (newhost)", host = "newhost.com", param = "utm_a",
+                enabled = true, priority = 1000, isBuiltIn = true,
+            )
+        ))
+        AppContainer.browserRegistry = FakeRegistry(context(), browser("org.example.browser"))
+
+        val activity = build("https://example.com/page?a=1&utm_a=x&c=3")
+        settle(activity)
+
+        val started = startedActivities(activity).single()
+        assertEquals("org.example.browser", started.`package`)
+        assertEquals(
+            "rewrite then strip; surviving query params keep their order",
+            Uri.parse("https://newhost.com/page?a=1&c=3"), started.data,
+        )
+    }
+
+    @Test
+    fun `host rewrite is applied to the final url immediately before dispatch`() {
+        // Q1: routing (matchUrl) uses the PRE-rewrite host (x.com via the rule),
+        // but the rewrite is applied to the LAUNCHED url right before dispatch.
+        AppContainer.ruleRepository = FakeRepository(listOf(
+            Rule(
+                id = 1,
+                pattern = "x.com",
+                matchType = net.chaosengine.linkrouter.rules.MatchType.EXACT_HOST,
+                targetPackage = "org.example.browser",
+                openMode = OpenMode.NORMAL,
+                enabled = true,
+                priority = 1,
+            )
+        ))
+        AppContainer.hostRewriteRepository = FakeHostRewriteRepo(listOf(rewrite("x.com", "twitter.com")))
+        AppContainer.browserRegistry = FakeRegistry(context(), browser("org.example.browser"))
+
+        val activity = build("https://x.com/thread/42?ref=home")
+        settle(activity)
+
+        val started = startedActivities(activity).single()
+        assertEquals("org.example.browser", started.`package`)
+        // Rewritten host on the final dispatched url; query/path preserved.
+        assertEquals(Uri.parse("https://twitter.com/thread/42?ref=home"), started.data)
+        assertTrue(started.getBooleanExtra(LinkRouter.EXTRA_HANDLED, false))
+    }
+
+    @Test
+    fun `userinfo or port url with no matching rewrite rule passes through unchanged`() {
+        // A userinfo+port edge URL that NO rewrite rule matches must reach the
+        // fallback UNCHANGED (no re-route, no host rewrite, no crash). The
+        // dispatcher's own URL normalization is permissive about userinfo/port,
+        // but HostRewriter must leave a non-matching edge URL exactly as-is.
+        AppContainer.ruleRepository = FakeRepository(emptyList())
+        // A rewrite rule for a DIFFERENT host — proving the edge URL is not a
+        // match and thus never reshaped.
+        AppContainer.hostRewriteRepository = FakeHostRewriteRepo(listOf(rewrite("x.com", "twitter.com")))
+        AppContainer.settings.setFallbackMode(FallbackMode.CHOOSER)
+        AppContainer.browserRegistry = FakeRegistry(context(), browser("org.example.browser"))
+
+        val url = "https://user:pass@example.com:8080/a"
+        val activity = build(url)
+        settle(activity)
+
+        // No rule matched → chooser, and the carried URI is the ORIGINAL edge URL.
+        val started = startedActivities(activity).single()
+        assertTrue(isBrowserChooser(started))
+        assertEquals(Uri.parse(url), started.getParcelableExtra(LinkRouter.EXTRA_URI))
+    }
+
     @Test
     fun `uninstalled target browser falls back to chooser`() {
         AppContainer.ruleRepository = FakeRepository(listOf(rule("org.missing.browser")))
@@ -790,7 +951,7 @@ class DispatcherActivityTest {
         // ACTION_VIEW resolves to our own package.
         val self = Intent(Intent.ACTION_VIEW, Uri.parse("https://other.com/page"))
         val activityInfo = android.content.pm.ActivityInfo().apply {
-            packageName = "net.chaosengine.linkrouter"
+            packageName = context().packageName
             name = "net.chaosengine.linkrouter.DispatcherActivity"
             enabled = true
             exported = true

@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PrivateConnectivity
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Web
 import net.chaosengine.linkrouter.browsers.WebViewTarget
@@ -75,6 +76,7 @@ fun RulesScreen(
     onOpenRedirects: () -> Unit,
     onOpenShorteners: () -> Unit,
     onOpenParamFilters: () -> Unit,
+    onOpenHostRewrites: () -> Unit,
 ) {
     var showEditor by rememberSaveable { mutableStateOf(false) }
     var editingRule by remember { mutableStateOf<Rule?>(null) }
@@ -98,6 +100,9 @@ fun RulesScreen(
                     }
                     IconButton(onClick = onOpenParamFilters) {
                         Icon(Icons.Filled.Tune, contentDescription = context.getString(net.chaosengine.linkrouter.R.string.param_filters_title))
+                    }
+                    IconButton(onClick = onOpenHostRewrites) {
+                        Icon(Icons.Filled.SwapHoriz, contentDescription = context.getString(net.chaosengine.linkrouter.R.string.host_rewrites_title))
                     }
                     IconButton(onClick = onOpenSettings) {
                         Icon(Icons.Filled.Settings, contentDescription = "Settings")

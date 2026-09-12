@@ -20,4 +20,16 @@ class Converters {
 
     @TypeConverter
     fun stringToExtractType(value: String): ExtractType = ExtractType.valueOf(value)
+
+    @TypeConverter
+    fun rewriteMatchTypeToString(value: RewriteMatchType): String = value.name
+
+    @TypeConverter
+    fun stringToRewriteMatchType(value: String): RewriteMatchType = RewriteMatchType.valueOf(value)
+
+    @TypeConverter
+    fun rewriteKindToString(value: RewriteKind): String = value.name
+
+    @TypeConverter
+    fun stringToRewriteKind(value: String): RewriteKind = RewriteKind.valueOf(value)
 }

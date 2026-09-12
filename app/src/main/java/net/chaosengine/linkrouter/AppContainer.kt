@@ -6,6 +6,7 @@ import androidx.room.RoomDatabase
 import androidx.sqlite.db.SupportSQLiteDatabase
 import net.chaosengine.linkrouter.browsers.BrowserRegistry
 import net.chaosengine.linkrouter.rules.ActivityWebResolver
+import net.chaosengine.linkrouter.rules.HostRewriteRepository
 import net.chaosengine.linkrouter.rules.LinkRouterDatabase
 import net.chaosengine.linkrouter.rules.RedirectFormatRepository
 import net.chaosengine.linkrouter.rules.QueryParamFilterRepository
@@ -24,6 +25,7 @@ object AppContainer {
     lateinit var redirectFormatRepository: RedirectFormatRepository
     lateinit var shortenerHostRepository: ShortenerHostRepository
     lateinit var queryParamFilterRepository: QueryParamFilterRepository
+    lateinit var hostRewriteRepository: HostRewriteRepository
     lateinit var browserRegistry: BrowserRegistry
     lateinit var settings: SettingsStore
 
@@ -50,6 +52,7 @@ object AppContainer {
                     LinkRouterDatabase.MIGRATION_4_5,
                     LinkRouterDatabase.MIGRATION_5_6,
                     LinkRouterDatabase.MIGRATION_6_7,
+                    LinkRouterDatabase.MIGRATION_7_8,
                 )
                 // Real migration (2 -> 3) is primary; destructive is a last-resort
                 // safety net only.
@@ -62,6 +65,9 @@ object AppContainer {
                         ensureBuiltInFormat(db)
                         ensureBuiltInShortenerHosts(db)
                         ensureBuiltInQueryParamFilters(db)
+                        // Host-rewrite seeds (P0): fresh installs do NOT run
+                        // migrations, so seed here too (idempotent, defensive).
+                        LinkRouterDatabase.seedBuiltInHostRewrites(db)
                     }
                 })
                 .build()
@@ -69,6 +75,7 @@ object AppContainer {
             redirectFormatRepository = RedirectFormatRepository(database)
             shortenerHostRepository = ShortenerHostRepository(database)
             queryParamFilterRepository = QueryParamFilterRepository(database)
+            hostRewriteRepository = HostRewriteRepository(database)
             browserRegistry = BrowserRegistry(app)
             settings = SettingsStore(app)
         }
