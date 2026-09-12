@@ -103,9 +103,9 @@ dependencies {
     implementation("io.coil-kt:coil-compose:2.7.0")
 
     // JSON import/export (local only, no network)
-    implementation("com.squareup.moshi:moshi:1.15.1")
-    implementation("com.squareup.moshi:moshi-kotlin:1.15.1")
-    ksp("com.squareup.moshi:moshi-kotlin-codegen:1.15.1")
+    implementation("com.squareup.moshi:moshi:1.15.2")
+    implementation("com.squareup.moshi:moshi-kotlin:1.15.2")
+    ksp("com.squareup.moshi:moshi-kotlin-codegen:1.15.2")
 
     // Testing
     testImplementation("junit:junit:4.13.2")
