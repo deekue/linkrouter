@@ -237,12 +237,17 @@ jobs:
             app/build/outputs/bundle/release/app-release.aab
             app-symbols.zip
 
+      - name: Debug OIDC Claims
+        uses: steve-todorov/oidc-debugger-action@v1
+        with:
+          audience: '${{ github.server_url }}/${{ github.repository }}'
+
       # Authenticate via Workload Identity Federation
       - id: auth
         name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
-          workload_identity_provider: 'projects/489729796823/locations/global/workloadIdentityPools/github-actions/providers/github-provider'
+          workload_identity_provider: 'projects/489729796823/locations/global/workloadIdentityPools/github-actions/providers/github'
           service_account: 'github-actions-deployer@linkrouter-508201.iam.gserviceaccount.com'
           # Generates short-lived credentials file compatible with Application Default Credentials (ADC)
           create_credentials_file: true
