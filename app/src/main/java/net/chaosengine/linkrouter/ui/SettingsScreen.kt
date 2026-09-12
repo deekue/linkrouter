@@ -79,6 +79,7 @@ fun SettingsScreen(
         val importedFormats = vm.parseFormatJson(json)
         val importedFilters = vm.parseFilterJson(json)
         val importedHosts = vm.parseShortenerHostJson(json)
+        val importedRewrites = vm.parseHostRewriteJson(json)
         scope.launch {
             if (imported == null && importedFormats == null) {
                 snackbarHostState.showSnackbar(context.getString(R.string.import_failed))
@@ -87,6 +88,7 @@ fun SettingsScreen(
                 importedFormats?.let { vm.importFormats(it) }
                 importedFilters?.let { vm.importQueryParamFilters(it) }
                 importedHosts?.let { vm.importShortenerHosts(it) }
+                importedRewrites?.let { vm.importHostRewrites(it) }
                 val rulesCount = imported?.size ?: 0
                 val fmtCount = importedFormats?.size ?: 0
                 val msg = if (rulesCount > 0 && fmtCount > 0) {
@@ -111,11 +113,12 @@ fun SettingsScreen(
                 val formats = kotlinx.coroutines.withContext(Dispatchers.IO) { vm.exportFormats() }
                 val filters = kotlinx.coroutines.withContext(Dispatchers.IO) { vm.exportQueryParamFilters() }
                 val hosts = kotlinx.coroutines.withContext(Dispatchers.IO) { vm.exportShortenerHosts() }
-                val text = net.chaosengine.linkrouter.importexport.RuleSerializer.toJson(rules, formats, filters, hosts)
+                val rewrites = kotlinx.coroutines.withContext(Dispatchers.IO) { vm.exportHostRewrites() }
+                val text = net.chaosengine.linkrouter.importexport.RuleSerializer.toJson(rules, formats, filters, hosts, rewrites)
                 context.contentResolver.openOutputStream(uri)
                     ?.use { it.write(text.encodeToByteArray()) }
                     ?: error("no stream")
-                snackbarHostState.showSnackbar(context.getString(R.string.export_ok, rules.size + formats.size + filters.size + hosts.size))
+                snackbarHostState.showSnackbar(context.getString(R.string.export_ok, rules.size + formats.size + filters.size + hosts.size + rewrites.size))
             } catch (e: Exception) {
                 snackbarHostState.showSnackbar(context.getString(R.string.export_failed))
             }

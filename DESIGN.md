@@ -556,13 +556,73 @@ user's chosen mode (default = **System chooser**):
 | **M7** | Shortener resolution — WebView fallback (D9) | Ephemeral resolution WebView (`ResolutionWebViewActivity`) that settles JS/Cloudflare/`<meta refresh>` interstitials and returns the final URL; the pure-JVM settle decision lives in `SettleDetector` (unit-testable, no WebView). The dispatcher escalates **only** on `Result.Interstitial` (not on Loop/MaxHops/Rejected/Error) and degrades to the original URL on failure/timeout (D6). Ephemeral privacy: cookies + cache + web storage cleared and the WebView destroyed on close. **Completed.** |
 | **M8** | Path-prefix shortener hosts (D9) | Optional `pathPrefix` on `ShortenerHost` (`NULL` = host-only, back-compat; non-null = the incoming short link's path must start with the prefix, case-insensitive, registrable-domain host match); pure-JVM `ShortenerMatcher`; two new **disabled** built-ins (`www.tiktok.com` + `/t/`, `www.facebook.com` + `/share/r/`). **Completed.** |
 | **M9** | URL param cleanup | Pure-JVM `QueryParamStripper.strip(url, enabledFilters)` strips user-managed + built-in tracking params from the **final launched URL** only (scheme/authority/path/fragment, param order, and raw percent-encoding of kept params preserved; non-web / query-less / no-match unchanged, D6); case-insensitive key match, values never inspected; `__lr` never stripped. Dedicated `query_param_filters` table (**DB v7 — `MIGRATION_6_7`**), separate from routing rules; built-ins use negative IDs **-31..-49** with delete ⇒ disable / update ⇒ enabled-only. Matching and shortener/redirect resolution are untouched. **Completed.** |
+| **M10** | Host rewrites (HOST_SWAP / PATH_PREFIX_REWRITE) | Pure-JVM `HostRewriter.rewrite(url, rules)` reshapes the **final launch URL** (host ± path) immediately **before** `QueryParamStripper` (M9) and **never** affects rule matching (matched on the pre-rewrite host). Single-pass, top-priority-wins, first-match, no re-application (loop-guarded). Edge-case hardening + port / userinfo / IDN behavioral contract documented (§15): trailing slash kept, empty path → `/` (PATH_PREFIX_REWRITE ⇒ `archive.md/<host>/`), non-implicit ports carried / implicit dropped, userinfo dropped unconditionally, IDN→ASCII at store time & in matching, query+fragment verbatim, www-tolerant `EXACT_HOST` / strict `EXACT_WWW_HOST` / literal incoming host in the prefix, non-http(s) & malformed rules return input unchanged (never throw). Three **disabled** built-in seeds (`x.com→twitter.com` HOST_SWAP, `www.tiktok.com→www.seetiktok.com` HOST_SWAP, `nytimes.com→archive.md` PATH_PREFIX_REWRITE) — non-deletable (disable/edit only). Dedicated `host_rewrites` table (**DB v8 — `MIGRATION_7_8`**), separate from routing rules. **Completed.** |
 
 Build strictly in M1 → M9 order; each milestone must be independently shippable
 and tested before the next begins. (M6, M7, M8 and M9 are complete.)
 
 ---
 
-## 15. Out of scope (explicit)
+## 15. Host rewrites (M10)
+
+After the dispatcher has matched a rule and resolved the **final** URL (post
+shortener / redirect resolution, §6) but **immediately before** it launches it,
+it may rewrite the **host and/or path** of that final URL via the first matching
+host-rewrite rule. Like param cleanup (M9), this is a **launch-time** shaping step:
+it never affects rule matching (§5), which matched on the **pre-rewrite**
+incoming host. Matching, shortener/redirect resolution, and the loop-guard
+check are all untouched.
+
+- **Purpose & scope:** two kinds of rewrite, applied to the single final URL the
+  dispatcher launches:
+  - **`HOST_SWAP`** — replace the URL's host with the rule's target host; the
+    path, query, and fragment are kept as-is.
+  - **`PATH_PREFIX_REWRITE`** — replace the host *and* reshape the path. When
+    enabled, the **literal incoming host** is prepended:
+    `nytimes.com/blah` → `archive.md/nytimes.com/blah`.
+- **Pipeline position (Q1):** applied to the **final launch URL** **immediately
+  before** `QueryParamStripper` (M9) — i.e. **rewrite, then strip**. It runs
+  **after** shortener/redirect resolution and **after** routing has matched on
+  the pre-rewrite host. Host rewrites **never re-route**: which routing rule
+  wins is decided before the rewrite, on the original host.
+- **Behavioral contract (edge cases):** these are the documented, tested
+  behaviors — the unit tests in `HostRewriterTest` are the source of truth.
+
+  | # | Case | Behavior |
+  |---|------|----------|
+  | 1 | Trailing slash | Preserved as-is — no dedup / normalization of `//` or a trailing `/`. |
+  | 2 | Empty path | Normalized to `/`, so `PATH_PREFIX_REWRITE` yields `archive.md/<host>/`. |
+  | 3 | Port (Q3) | A non-implicit port is carried onto the target host (`x.com:8080/a` → `twitter.com:8080/a`); the scheme-implicit port (443/https, 80/http) is dropped. |
+  | 4 | Userinfo | Dropped unconditionally — credentials never follow the host to a different site. Matching compares the **bare** host (no userinfo, no port). |
+  | 5 | IDN / unicode | Match & compare in `IDN.toASCII` form; the target is normalized to ASCII at store time (`xn--…` is what launches). |
+  | 6 | Query / fragment | Preserved **verbatim**, raw encoding intact (string-level rebuild — the rewriter keeps the fragment, which `RuleEngine.ParsedUrl` drops; see #10). |
+  | 7 | www vs apex | `EXACT_HOST` is www-tolerant; `EXACT_WWW_HOST` is strict; the PATH_PREFIX_REWRITE prefix is the **literal incoming host** (Q2), so a leading `www.` is preserved in the prefix. |
+  | 8 | Loop-generating rule | Single-pass first-match ⇒ a rule is **never** re-applied to its own output. The validator **warns** (does not block) when a `PATH_PREFIX_REWRITE`'s target base equals its match base. |
+  | 9 | Invalid / relative / non-http(s) | `mailto:`, `file:`, relative… → input returned **unchanged**; **never throws** (D6). |
+  | 10 | Fragment note | `RuleEngine.ParsedUrl` carries **no** fragment — the rewriter parses/splits it out of the raw string itself, so a fragment is not lost on rewrite. |
+  | 11 | Multiple matching rules | Top-priority wins; the list is scanned once in priority order and the **first** enabled non-null match applied — no chaining in v1. |
+  | 12 | Malformed stored rule | Input unchanged; `applyOne` returns `null`; **never throws** (D6: defensive, so a bad rule is inert). |
+
+- **Built-in seeds (disabled by default):** three non-deletable example rules —
+  `x.com → twitter.com` (`HOST_SWAP`), `www.tiktok.com → www.seetiktok.com`
+  (`HOST_SWAP`), `nytimes.com → archive.md` (`PATH_PREFIX_REWRITE`, host-in-path).
+  All ship `isBuiltIn = 1`, **`enabled = 0`** (a default install applies no
+  rewrites). Like the M9 filters, delete ⇒ **disable** only; the user may
+  enable, toggle, or re-target a seed, just never remove it.
+- **Single-pass & loop-guarded:** the rewriter returns on the **first** matching
+  rule and never re-evaluates its own output — a rewrite can therefore never
+  loop against itself, and no rule is chained after another in v1.
+- **Persistence:** a dedicated `host_rewrites` table (Room entity, **DB v8 —
+  `MIGRATION_7_8`**), kept **separate from routing rules**: a rewrite is a
+  launch-time shaping flag, not a routing decision.
+
+> Host rewrites touch **only** the outbound final launch URL. They make no
+> network calls, change neither the rule match (§5) nor the shortener /
+> redirect resolution (§6), and are applied just before param cleanup (M9/§6).
+
+---
+
+## 16. Out of scope (explicit)
 
 - No general in-app browsing experience — the only in-app *browsing* is the
   opt-in per-rule WebView target (§7.1), not a full browser. (The M7

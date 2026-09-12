@@ -12,6 +12,7 @@ import net.chaosengine.linkrouter.browsers.BrowserRegistry
 import net.chaosengine.linkrouter.browsers.StrategyTable
 import net.chaosengine.linkrouter.browsers.WebViewTarget
 import net.chaosengine.linkrouter.fallback.FallbackHandler
+import net.chaosengine.linkrouter.rules.HostRewriter
 import net.chaosengine.linkrouter.rules.QueryParamStripper
 import net.chaosengine.linkrouter.rules.RedirectResolver
 import net.chaosengine.linkrouter.rules.Rule
@@ -36,6 +37,7 @@ class DispatcherActivity : Activity() {
     private lateinit var redirectRepo: net.chaosengine.linkrouter.rules.RedirectFormatRepository
     private lateinit var shortenerRepo: net.chaosengine.linkrouter.rules.ShortenerHostRepository
     private lateinit var paramFilterRepo: net.chaosengine.linkrouter.rules.QueryParamFilterRepository
+    private lateinit var hostRewriteRepo: net.chaosengine.linkrouter.rules.HostRewriteRepository
     private lateinit var registry: BrowserRegistry
     private lateinit var settings: SettingsStore
     private val dispatchScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -62,6 +64,7 @@ class DispatcherActivity : Activity() {
         redirectRepo = AppContainer.get(this).redirectFormatRepository
         shortenerRepo = AppContainer.get(this).shortenerHostRepository
         paramFilterRepo = AppContainer.get(this).queryParamFilterRepository
+        hostRewriteRepo = AppContainer.get(this).hostRewriteRepository
         registry = AppContainer.get(this).browserRegistry
         settings = AppContainer.get(this).settings
 
@@ -107,13 +110,15 @@ class DispatcherActivity : Activity() {
                 val formats: List<net.chaosengine.linkrouter.rules.RedirectFormat>,
                 val shortenerHosts: List<net.chaosengine.linkrouter.rules.ShortenerHost>,
                 val paramFilters: List<net.chaosengine.linkrouter.rules.QueryParamFilter>,
+                val hostRewrites: List<net.chaosengine.linkrouter.rules.HostRewrite>,
             )
-            val (rules, formats, shortenerHosts, paramFilters) = withContext(Dispatchers.IO) {
+            val (rules, formats, shortenerHosts, paramFilters, hostRewrites) = withContext(Dispatchers.IO) {
                 Loaded(
                     repo.all(),
                     redirectRepo.allEnabled(),
                     shortenerRepo.allEnabled(),
                     paramFilterRepo.allEnabled(),
+                    hostRewriteRepo.allEnabled(),
                 )
             }
 
@@ -155,9 +160,15 @@ class DispatcherActivity : Activity() {
             // openRealDestination logic on the original wrapper.
             val launchUrl = finalUrl ?: RedirectResolver.launchDestination(original.toString(), formats)
 
+            // HOST REWRITE (P2): reshape the URL we LAUNCH via the first enabled
+            // host-rewrite rule (top-priority first) BEFORE param stripping —
+            // rewrite-then-strip. Like M9, this only shapes the launched URL;
+            // rule matching above used the pre-rewrite matchUrl.
+            val rewritten = HostRewriter.rewrite(launchUrl, hostRewrites)
+
             // M9: strip enabled tracking params from the URL we LAUNCH (never
             // from matchUrl — rule matching stays query-independent, DESIGN.md §6/M9).
-            val launchUri = Uri.parse(QueryParamStripper.strip(launchUrl, paramFilters))
+            val launchUri = Uri.parse(QueryParamStripper.strip(rewritten, paramFilters))
 
             // 3. RESOLVE TARGET + LAUNCH
             if (rule == null) {

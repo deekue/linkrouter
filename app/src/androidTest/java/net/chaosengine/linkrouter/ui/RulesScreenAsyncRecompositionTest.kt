@@ -73,6 +73,7 @@ class RulesScreenAsyncRecompositionTest {
                 onOpenRedirects = {},
                 onOpenShorteners = {},
                 onOpenParamFilters = {},
+                onOpenHostRewrites = {},
             )
         }
 

@@ -1,11 +1,14 @@
 package net.chaosengine.linkrouter.importexport
 
 import net.chaosengine.linkrouter.rules.ExtractType
+import net.chaosengine.linkrouter.rules.HostRewrite
 import net.chaosengine.linkrouter.rules.MatchType
 import net.chaosengine.linkrouter.rules.OpenMode
 import net.chaosengine.linkrouter.rules.RedirectFormat
 import net.chaosengine.linkrouter.rules.QueryParamFilter
 import net.chaosengine.linkrouter.rules.Rule
+import net.chaosengine.linkrouter.rules.RewriteKind
+import net.chaosengine.linkrouter.rules.RewriteMatchType
 import net.chaosengine.linkrouter.rules.ShortenerHost
 import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
@@ -31,6 +34,7 @@ object RuleSerializer {
         val redirectFormats: List<RedirectFormatDto>? = null,
         val queryParamFilters: List<QueryParamFilterDto>? = null,
         val shortenerHosts: List<ShortenerHostDto>? = null,
+        val hostRewrites: List<HostRewriteDto>? = null,
     )
 
     @JsonClass(generateAdapter = true)
@@ -73,6 +77,17 @@ object RuleSerializer {
         val builtIn: Boolean = false,
     )
 
+    @JsonClass(generateAdapter = true)
+    data class HostRewriteDto(
+        val matchHost: String,
+        val matchType: String,
+        val kind: String,
+        val targetHost: String,
+        val preserveHostInPath: Boolean = false,
+        val enabled: Boolean = true,
+        val isBuiltIn: Boolean = false,
+    )
+
     fun toJson(rules: List<Rule>): String = toJson(rules, emptyList())
 
     fun toJson(rules: List<Rule>, formats: List<RedirectFormat>): String =
@@ -86,6 +101,15 @@ object RuleSerializer {
         formats: List<RedirectFormat>,
         filters: List<QueryParamFilter>,
         hosts: List<ShortenerHost>,
+    ): String =
+        toJson(rules, formats, filters, hosts, emptyList())
+
+    fun toJson(
+        rules: List<Rule>,
+        formats: List<RedirectFormat>,
+        filters: List<QueryParamFilter>,
+        hosts: List<ShortenerHost>,
+        hostRewrites: List<HostRewrite>,
     ): String {
         val list = RuleList(
             version = 1,
@@ -127,6 +151,17 @@ object RuleSerializer {
                     pathPrefix = it.pathPrefix,
                     enabled = it.enabled,
                     builtIn = it.isBuiltIn,
+                )
+            },
+            hostRewrites = hostRewrites.map {
+                HostRewriteDto(
+                    matchHost = it.matchHost,
+                    matchType = it.matchType.name,
+                    kind = it.kind.name,
+                    targetHost = it.targetHost,
+                    preserveHostInPath = it.preserveHostInPath,
+                    enabled = it.enabled,
+                    isBuiltIn = it.isBuiltIn,
                 )
             },
         )
@@ -196,6 +231,25 @@ object RuleSerializer {
                 enabled = dto.enabled,
                 priority = 0,
                 isBuiltIn = dto.builtIn,
+            )
+        }
+    }
+
+    fun fromHostRewriteJson(json: String): List<HostRewrite> {
+        val list = adapter.fromJson(json) ?: throw IllegalArgumentException("Empty or invalid JSON")
+        val dtos = list.hostRewrites ?: emptyList()
+        // Priority/order is preserved by list position, not a stored field.
+        return dtos.mapIndexed { index, dto ->
+            HostRewrite(
+                id = 0,
+                matchHost = dto.matchHost,
+                matchType = RewriteMatchType.valueOf(dto.matchType),
+                kind = RewriteKind.valueOf(dto.kind),
+                targetHost = dto.targetHost,
+                preserveHostInPath = dto.preserveHostInPath,
+                enabled = dto.enabled,
+                priority = index,
+                isBuiltIn = dto.isBuiltIn,
             )
         }
     }
