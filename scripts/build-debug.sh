@@ -28,36 +28,45 @@ warn() { printf '\n\033[33mWARNING: %s\033[0m\n' "$*" >&2; }
 
 # ---------------------------------------------------------------------------
 # Step 1: Resolve version / versionCode.
-# Mirrors the release workflow: defaults are what app/build.gradle.kts falls
-# back to; VERSION_NAME / VERSION_CODE (env) override, matching the CI
-# -PVERSION_NAME / -PVERSION_CODE flags.
+# Mirrors the release workflow's "Resolve release version" step: the version
+# comes from the latest git tag matching ^v[0-9.]+ (e.g. v0.3.0), with the
+# leading "v" stripped for versionName, and versionCode derived using the same
+# base-100 encoding as the workflow:
+#     MAJOR*10000 + MINOR*100 + PATCH   (missing MINOR/PATCH default to 0)
+# If no such tag exists, fall back to the hardcoded defaults from
+# app/build.gradle.kts (versionName 0.2.1, versionCode 201) with a warning.
 # ---------------------------------------------------------------------------
 say "Step 1/6: Resolving version / versionCode"
 
-GRADLE_KTS="$REPO_ROOT/app/build.gradle.kts"
-# Defaults from app/build.gradle.kts, e.g.:
-#   versionCode = (project.findProperty("VERSION_CODE") as? String)?.toIntOrNull() ?: 201
-#   versionName = (project.findProperty("VERSION_NAME") as? String) ?: "0.2.1"
-if [ -f "$GRADLE_KTS" ]; then
-  DEFAULT_CODE="$(sed -nE 's/.*versionCode *=.*toIntOrNull\(\)[[:space:]]*\?[[:space:]]*:?[[:space:]]*([0-9]+).*/\1/p' "$GRADLE_KTS" | head -n1)"
-  DEFAULT_NAME="$(sed -nE 's/.*versionName *=.*\)[[:space:]]*\?[[:space:]]*:?[[:space:]]*"([^"]+)".*/\1/p' "$GRADLE_KTS" | head -n1)"
-fi
-if [ -z "${VERSION_NAME:-}" ]; then
-  if [ -z "${DEFAULT_NAME:-}" ]; then
-    echo "ERROR: could not determine versionName (set VERSION_NAME or fix app/build.gradle.kts parsing)." >&2
-    exit 1
+# Hardcoded defaults (mirror of app/build.gradle.kts fallbacks).
+DEFAULT_NAME="0.2.1"
+DEFAULT_CODE="201"
+
+VERSION_TAG=""
+LATEST_TAG="$(git tag --list --sort=-v:refname 2>/dev/null | grep -E '^v[0-9.]+' | head -n1 || true)"
+if [ -n "$LATEST_TAG" ]; then
+  VERSION_NAME="${LATEST_TAG#v}"
+  # Validate like the workflow does: ^[0-9]+(\.[0-9]+){1,2}$
+  if [[ "$VERSION_NAME" =~ ^[0-9]+(\.[0-9]+){1,2}$ ]]; then
+    VERSION_TAG="$LATEST_TAG"
+  else
+    warn "Tag '$LATEST_TAG' matched the tag pattern but '$VERSION_NAME' is not a valid version; ignoring."
+    LATEST_TAG=""
   fi
-  VERSION_NAME="$DEFAULT_NAME"
-fi
-if [ -z "${VERSION_CODE:-}" ]; then
-  if [ -z "${DEFAULT_CODE:-}" ] || [ "$DEFAULT_CODE" = "0" ]; then
-    echo "ERROR: could not determine versionCode (set VERSION_CODE or fix app/build.gradle.kts parsing)." >&2
-    exit 1
-  fi
-  VERSION_CODE="$DEFAULT_CODE"
 fi
 
-echo "Resolved version: $VERSION_NAME (versionCode $VERSION_CODE)"
+if [ -z "$VERSION_TAG" ]; then
+  # Graceful fallback: no usable version tag found.
+  warn "No git tag matching '^v[0-9.]+' found; falling back to hardcoded defaults (versionName $DEFAULT_NAME, versionCode $DEFAULT_CODE)."
+  VERSION_NAME="$DEFAULT_NAME"
+  VERSION_CODE="$DEFAULT_CODE"
+  VERSION_SOURCE="fallback (no matching git tag)"
+else
+  VERSION_CODE="$(IFS='.' read -r M m p <<< "$VERSION_NAME"; M=${M:-0}; m=${m:-0}; p=${p:-0}; echo $(( (M * 10000) + (m * 100) + p )))"
+  VERSION_SOURCE="git tag $VERSION_TAG"
+fi
+
+echo "Resolved version: $VERSION_NAME (versionCode $VERSION_CODE) [$VERSION_SOURCE]"
 
 # ---------------------------------------------------------------------------
 # Step 2: Unit tests (mirrors CI's "Run unit tests").
@@ -157,6 +166,7 @@ say "Summary"
 echo "  variant       : debug"
 echo "  versionName   : $VERSION_NAME"
 echo "  versionCode   : $VERSION_CODE"
+echo "  version from  : $VERSION_SOURCE"
 echo "  artifact(s)   :"
 echo "$APKS" | sed 's/^/    /'
 echo
