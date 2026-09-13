@@ -68,7 +68,13 @@ class DispatcherActivity : Activity() {
         registry = AppContainer.get(this).browserRegistry
         settings = AppContainer.get(this).settings
 
-        val original: Uri = intent?.data ?: run {
+        // 0. Resolve the URL to route. Two entry paths:
+        //   - ACTION_VIEW (default browser / link tap): the URL is in intent.data.
+        //   - ACTION_SEND (Share sheet, "Share link"): the link is carried in
+        //     extras (EXTRA_TEXT / EXTRA_STRINGS) rather than intent.data.
+        // Both converge on the SAME pipeline (rules -> unwrap -> shortener ->
+        // strip -> rewrite -> launch/fallback) below.
+        val original: Uri = intent?.data ?: extractSharedLink()?.let { Uri.parse(it) } ?: run {
             finish()
             return
         }
@@ -346,6 +352,27 @@ class DispatcherActivity : Activity() {
         intent.putExtra(LinkRouter.EXTRA_HANDLED, true) // loop-guard marker
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         startActivity(intent)
+    }
+
+    /**
+     * Resolve the shared link from an ACTION_SEND intent (the "Share link"
+     * sheet entry). Scans the extras in precedence order (TEXT, then
+     * STRINGS, then a data Uri) and returns the first http(s) link found, or
+     * null when nothing shareable is present.
+     *
+     * Only meaningfully used when [intent.data] is null (the ACTION_VIEW
+     * path already resolves the URL directly from the data); on an
+     * ACTION_VIEW intent the data is set and this is not consulted.
+     */
+    private fun extractSharedLink(): String? {
+        val candidates = LinkRouter.sharedTextCandidates(intent)
+        for (candidate in candidates) {
+            // A bare URL candidate passes through unchanged; prose-wrapped
+            // candidates yield the first http(s) run.
+            val link = RuleEngine.firstLinkIn(candidate) ?: continue
+            if (RuleEngine.normalize(link) != null) return link
+        }
+        return null
     }
 
     private fun toast(msg: String) {

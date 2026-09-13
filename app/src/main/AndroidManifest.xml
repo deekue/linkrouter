@@ -74,6 +74,35 @@
         </activity>
 
         <!--
+          "Share link" destination (ACTION_SEND, text/*). Appears in the
+          system share sheet so a shared link is routed through the SAME
+          DispatcherActivity pipeline (rules -> unwrap -> shortener -> strip ->
+          rewrite -> launch/fallback) as a tapped/VIEW link.
+
+          A sibling activity-alias of DispatcherActivity (it targets that
+          activity), so the chooser entry is a distinct component but the code
+          path is shared with the browser role. NOTE: no BROWSABLE category and
+          no <data scheme> — both are invalid/meaningless for ACTION_SEND; only
+          the mimeType gates it.
+        -->
+        <activity-alias
+            android:name=".ShareRouterActivity"
+            android:targetActivity=".DispatcherActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:label="@string/share_label"
+            android:icon="@mipmap/ic_launcher"
+            android:theme="@style/Theme.LinkRouter.Transparent">
+            <intent-filter android:label="@string/share_label">
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/*" />
+            </intent-filter>
+        </activity-alias>
+
+        <!--
           In-app browser chooser (DESIGN.md 9). Internal only (not exported):
           it is launched exclusively by LinkRouter via an explicit component
           intent, never by the framework. It is intentionally NOT registered
