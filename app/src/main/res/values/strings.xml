@@ -1,6 +1,8 @@
 <resources>
     <string name="app_name">LinkRouter</string>
     <string name="dispatcher_label">LinkRouter</string>
+    <!-- "Share link" chooser destination (ACTION_SEND). -->
+    <string name="share_label">LinkRouter</string>
 
     <string name="set_default_browser">Set LinkRouter as your default browser</string>
     <string name="empty_rules_title">No rules yet</string>

@@ -24,6 +24,12 @@ object RuleEngine {
     private val SCHEME = Pattern.compile("^([Hh][Tt][Tt][Pp][Ss]?):\\/\\/(.+)$")
     private val regexCache = ConcurrentHashMap<String, Regex>()
 
+    /** A run of non-whitespace starting at an http(s) scheme (raw, untrimmed tail). */
+    private val LINK_RUN = Regex("https?://[^\\s'\"<>]+", RegexOption.IGNORE_CASE)
+
+    /** Trailing punctuation that commonly bleeds into a shared link but is not part of it. */
+    private val TRAILING_CHARS = setOf('"', '\'', '<', '>', ')', ']', '}', '.', ',', ';', ':', '!', '?')
+
     fun regexFor(pattern: String): Regex =
         regexCache.computeIfAbsent(pattern) { Regex(it) }
 
@@ -76,6 +82,26 @@ object RuleEngine {
             path = if (tail.isEmpty()) "/" else tail,
             query = query,
         )
+    }
+
+    /**
+     * Extract the first http(s) link from arbitrary free text.
+     *
+     * Used by [LinkRouter] to find a shareable URL in shared text
+     * (e.g. from `intent.extra.TEXT` / `text/uri-list`). Returns the link URL
+     * trimmed of trailing punctuation, or null if the text has no http(s) link.
+     * Pure (no Android types) so it is unit-testable.
+     */
+    fun firstLinkIn(text: String): String? {
+        val match = LINK_RUN.find(text) ?: return null
+        val raw = match.value
+        val end = raw.length - 1
+        var trimmed = end
+        while (trimmed > 0 && (raw[trimmed] in TRAILING_CHARS)) {
+            trimmed--
+        }
+        val link = raw.substring(0, trimmed + 1)
+        return if (link.isNotEmpty()) link else null
     }
 
     fun normalizeHost(host: String): String {

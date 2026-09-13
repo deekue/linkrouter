@@ -193,4 +193,68 @@ class RuleEngineTest {
         )!!
         assertEquals(20, RuleEngine.scoreRule(rule, matchParsed))
     }
+
+    // --- firstLinkIn (share link extraction) ---
+
+    @Test
+    fun firstLinkIn_returns_bare_url() {
+        assertEquals("https://example.com/page", RuleEngine.firstLinkIn("https://example.com/page"))
+    }
+
+    @Test
+    fun firstLinkIn_extracts_url_from_prose() {
+        assertEquals("https://example.com/page",
+            RuleEngine.firstLinkIn("Check this out: https://example.com/page!"))
+    }
+
+    @Test
+    fun firstLinkIn_returns_first_when_multiple_links_present() {
+        // Only the FIRST http(s) URL in the text is returned.
+        assertEquals("https://example.com/first",
+            RuleEngine.firstLinkIn("https://example.com/first and also https://other.com/second"))
+    }
+
+    @Test
+    fun firstLinkIn_strips_trailing_punctuation() {
+        assertEquals("https://example.com/page", RuleEngine.firstLinkIn("see (https://example.com/page)."))
+    }
+
+    @Test
+    fun firstLinkIn_strips_quoting_and_markdown() {
+        assertEquals("https://example.com/a", RuleEngine.firstLinkIn("Visit <https://example.com/a> now"))
+        assertEquals("https://example.com/a", RuleEngine.firstLinkIn("Check https://example.com/a"))
+        assertEquals("https://example.com/a", RuleEngine.firstLinkIn("Check \"https://example.com/a\""))
+    }
+
+    @Test
+    fun firstLinkIn_preserves_query_and_fragment() {
+        assertEquals("https://example.com/a?b=1#sec",
+            RuleEngine.firstLinkIn("https://example.com/a?b=1#sec"))
+    }
+
+    @Test
+    fun firstLinkIn_preserves_internal_query_dots() {
+        // A legitimate query param value with dots (e.g. ?v=1.2.3) must survive:
+        // we only strip trailing punctuation from the WHOLE link, not interior.
+        assertEquals("https://example.com/p?v=1.2.3",
+            RuleEngine.firstLinkIn("Link: https://example.com/p?v=1.2.3"))
+    }
+
+    @Test
+    fun firstLinkIn_ignores_non_http_schemes() {
+        // mailto / ftp are not web links; must not be returned.
+        assertNull(RuleEngine.firstLinkIn("mailto:a@b.c"))
+        assertNull(RuleEngine.firstLinkIn("ftp://example.com/pub"))
+    }
+
+    @Test
+    fun firstLinkIn_null_when_no_http_link_present() {
+        assertNull(RuleEngine.firstLinkIn("just some plain text with no link"))
+        assertNull(RuleEngine.firstLinkIn(""))
+    }
+
+    @Test
+    fun firstLinkIn_returns_null_when_only_nonhttp_present() {
+        assertNull(RuleEngine.firstLinkIn("mailto:a@b.c and no http link"))
+    }
 }
