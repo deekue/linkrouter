@@ -304,7 +304,7 @@ jobs:
 
   deploy-docs:
     needs: [changes, build-docs]
-    if: needs.changes.outputs.docs == 'true'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.docs == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
