@@ -12,6 +12,7 @@ import net.chaosengine.linkrouter.rules.RewriteMatchType
 import net.chaosengine.linkrouter.rules.ShortenerHost
 import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import com.squareup.moshi.adapter
 
 /**
@@ -24,7 +25,9 @@ import com.squareup.moshi.adapter
  */
 object RuleSerializer {
 
-    private val moshi = Moshi.Builder().build()
+    private val moshi = Moshi.Builder()
+        .add(KotlinJsonAdapterFactory())
+        .build()
     private val adapter = moshi.adapter(RuleList::class.java)
 
     @JsonClass(generateAdapter = true)
