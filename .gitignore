@@ -53,3 +53,6 @@ node_modules/
 docs/public/
 docs/resources/_gen/
 docs/.hugo_build.lock
+
+# local env
+.env
