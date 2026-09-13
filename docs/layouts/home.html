@@ -1,5 +1,13 @@
 {{ define "content" }}
-  {{ partial "home.html" . }}
+  {{/*
+    Disabled: the theme's "home.html" partial renders the "about" section
+    (avatar / author name / info / social links) from
+    themes/hugo-coder/layouts/_partials/home.html (a git submodule we must
+    not modify). Commenting out this call disables the about section using
+    the site's own layout, which takes precedence over the theme.
+    Re-enable by restoring the line below:
+      {{ partial "home.html" . }}
+  */}}
 
   {{ if .Content }}
     <section class="container page">

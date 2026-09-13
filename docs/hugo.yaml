@@ -38,7 +38,7 @@ markup:
   highlight:
     style: "github-dark"
 params:
-  author: "Daniel Quinlan"
+  author: "deekue"
   info: "LinkRouter"
   description: "LinkRouter"
   keywords: "linkrouter,android"
