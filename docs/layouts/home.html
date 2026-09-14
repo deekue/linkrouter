@@ -14,16 +14,15 @@
       <article>
         {{ .Content }}
 
-        {{ $version := "unknown" }}
-        {{ with resources.Get "app/build.gradle.kts" }}
-          {{/* Matches: versionName = "1.2.3" or versionName = '1.2.3' */}}
-          {{ $match := findRESubmatch `(?m)^\s*versionName\s*=\s*["']([^"']+)["']` .Content }}
-          {{ if $match }}
-            {{/* Index [0][1] gets the first capture group of the first match */}}
-            {{ $version = index $match 0 1 }}
-          {{ end }}
-        {{ end }}
-        
+        {{/*
+          Version is computed at build time from the newest git tag matching
+          v[0-9.]+ (e.g. v0.3.5 -> 0.3.5) and written to docs/data/version.json
+          by scripts/gen-docs-version.sh. Hugo templates cannot exec git, so this
+          data file is generated before `hugo build`. Falls back to "unknown"
+          when the data file is absent.
+        */}}
+        {{ $version := hugo.Data.version.version | default "unknown" }}
+
         <p>Version: {{ $version }}</p>
       </article>
     </section>
