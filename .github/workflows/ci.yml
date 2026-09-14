@@ -286,6 +286,7 @@ jobs:
       - name: Build
         run: |
           echo "Building the project..."
+          ../scripts/gen-docs-version.sh
           hugo build \
             --gc \
             --minify \
