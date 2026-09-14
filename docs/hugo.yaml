@@ -13,11 +13,6 @@ module:
   mounts:
     - source: assets
       target: assets
-    - source: ../app
-      target: assets/app
-      files:
-      - 'build.gradle.kts'
-
     - source: static
       target: static
     - source: ..
