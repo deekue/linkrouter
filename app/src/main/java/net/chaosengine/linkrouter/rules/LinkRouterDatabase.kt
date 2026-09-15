@@ -168,11 +168,12 @@ abstract class LinkRouterDatabase : RoomDatabase() {
                 Triple(-51L, Pair("x.com", Pair(RewriteMatchType.EXACT_HOST, RewriteKind.HOST_SWAP)), Pair("twitter.com", false)),
                 Triple(-52L, Pair("www.tiktok.com", Pair(RewriteMatchType.EXACT_WWW_HOST, RewriteKind.HOST_SWAP)), Pair("www.seetiktok.com", false)),
                 Triple(-53L, Pair("nytimes.com", Pair(RewriteMatchType.EXACT_HOST, RewriteKind.PATH_PREFIX_REWRITE)), Pair("archive.md", true)),
+                Triple(-54L, Pair("geocities.com", Pair(RewriteMatchType.EXACT_HOST, RewriteKind.PATH_PREFIX_REWRITE)), Pair("web.archive.org/web/*/geocities.com", false)),
             )
-            // Fixed priorities for the seeds (per spec: 1, 2, 3). User inserts
+            // Fixed priorities for the seeds (per spec: 1, 2, 3, 4). User inserts
             // are assigned `maxPriority + 1`, so they always land above the seeds
             // and never collide with them.
-            val priorities = listOf(1, 2, 3)
+            val priorities = listOf(1, 2, 3, 4)
             try {
                 builtIns.forEachIndexed { index, seed ->
                     val (id, hostAndKind, targetAndFlag) = seed
