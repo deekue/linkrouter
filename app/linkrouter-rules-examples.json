@@ -1,0 +1,292 @@
+{
+  "version": 1,
+  "rules": [],
+  "redirectFormats": [
+    {
+      "name": "Google www",
+      "pattern": "www.google.com/url",
+      "matchType": "PATH_PREFIX",
+      "extractType": "QUERY_PARAM",
+      "extractTarget": "q",
+      "enabled": true,
+      "priority": 1001,
+      "isBuiltIn": true,
+      "openRealDestination": true
+    },
+    {
+      "name": "Google",
+      "pattern": "google.com/url",
+      "matchType": "PATH_PREFIX",
+      "extractType": "QUERY_PARAM",
+      "extractTarget": "q",
+      "enabled": true,
+      "priority": 1000,
+      "isBuiltIn": true,
+      "openRealDestination": true
+    },
+    {
+      "name": "Facebook (redirect.php)",
+      "pattern": "facebook.com/redirect.php",
+      "matchType": "PATH_PREFIX",
+      "extractType": "QUERY_PARAM",
+      "extractTarget": "u",
+      "enabled": true,
+      "priority": 4,
+      "isBuiltIn": true,
+      "openRealDestination": true
+    },
+    {
+      "name": "Facebook (l.php)",
+      "pattern": "l.facebook.com/l.php",
+      "matchType": "PATH_PREFIX",
+      "extractType": "QUERY_PARAM",
+      "extractTarget": "u",
+      "enabled": true,
+      "priority": 3,
+      "isBuiltIn": true,
+      "openRealDestination": true
+    },
+    {
+      "name": "Mailchimp/Mandrill",
+      "pattern": "*.email.mandrillapp.com",
+      "matchType": "SUBDOMAIN",
+      "extractType": "QUERY_PARAM",
+      "extractTarget": "lc",
+      "enabled": true,
+      "priority": 2,
+      "isBuiltIn": true,
+      "openRealDestination": true
+    },
+    {
+      "name": "Reddit (in-site)",
+      "pattern": "reddit.com/redirect/",
+      "matchType": "PATH_PREFIX",
+      "extractType": "QUERY_PARAM",
+      "extractTarget": "url",
+      "enabled": true,
+      "priority": 1,
+      "isBuiltIn": true,
+      "openRealDestination": true
+    }
+  ],
+  "queryParamFilters": [
+    {
+      "param": "original_uri",
+      "host": "facebook.com",
+      "enabled": false,
+      "builtIn": true
+    },
+    {
+      "param": "feature",
+      "host": "youtube.com",
+      "enabled": false,
+      "builtIn": true
+    },
+    {
+      "param": "si",
+      "host": "youtube.com",
+      "enabled": false,
+      "builtIn": true
+    },
+    {
+      "param": "igshid",
+      "host": "instagram.com",
+      "enabled": false,
+      "builtIn": true
+    },
+    {
+      "param": "igsi",
+      "host": "instagram.com",
+      "enabled": false,
+      "builtIn": true
+    },
+    {
+      "param": "_t",
+      "host": "tiktok.com",
+      "enabled": false,
+      "builtIn": true
+    },
+    {
+      "param": "mc_cid",
+      "enabled": false,
+      "builtIn": true
+    },
+    {
+      "param": "mc_eid",
+      "enabled": false,
+      "builtIn": true
+    },
+    {
+      "param": "sharer_id",
+      "enabled": false,
+      "builtIn": true
+    },
+    {
+      "param": "fbid",
+      "enabled": false,
+      "builtIn": true
+    },
+    {
+      "param": "fbclid",
+      "enabled": false,
+      "builtIn": true
+    },
+    {
+      "param": "msclkid",
+      "enabled": false,
+      "builtIn": true
+    },
+    {
+      "param": "gclsrc",
+      "enabled": false,
+      "builtIn": true
+    },
+    {
+      "param": "gclid",
+      "enabled": false,
+      "builtIn": true
+    },
+    {
+      "param": "utm_content",
+      "enabled": false,
+      "builtIn": true
+    },
+    {
+      "param": "utm_term",
+      "enabled": false,
+      "builtIn": true
+    },
+    {
+      "param": "utm_campaign",
+      "enabled": false,
+      "builtIn": true
+    },
+    {
+      "param": "utm_medium",
+      "enabled": false,
+      "builtIn": true
+    },
+    {
+      "param": "utm_source",
+      "enabled": false,
+      "builtIn": true
+    },
+    {
+      "param": "stkn",
+      "host": "instagram.com",
+      "enabled": false,
+      "builtIn": true
+    }
+  ],
+  "shortenerHosts": [
+    {
+      "name": "Facebook share links",
+      "host": "www.facebook.com",
+      "pathPrefix": "/share/r/",
+      "enabled": false,
+      "builtIn": true
+    },
+    {
+      "name": "TikTok short links",
+      "host": "www.tiktok.com",
+      "pathPrefix": "/t/",
+      "enabled": false,
+      "builtIn": true
+    },
+    {
+      "name": "buff.ly",
+      "host": "buff.ly",
+      "enabled": false,
+      "builtIn": true
+    },
+    {
+      "name": "ow.ly",
+      "host": "ow.ly",
+      "enabled": false,
+      "builtIn": true
+    },
+    {
+      "name": "tinyurl.com",
+      "host": "tinyurl.com",
+      "enabled": false,
+      "builtIn": true
+    },
+    {
+      "name": "is.gd",
+      "host": "is.gd",
+      "enabled": false,
+      "builtIn": true
+    },
+    {
+      "name": "bit.ly",
+      "host": "bit.ly",
+      "enabled": false,
+      "builtIn": true
+    },
+    {
+      "name": "t.co",
+      "host": "t.co",
+      "enabled": false,
+      "builtIn": true
+    },
+    {
+      "name": "Facebook Me",
+      "host": "fb.me",
+      "enabled": false,
+      "builtIn": true
+    },
+    {
+      "name": "Google",
+      "host": "share.google",
+      "enabled": false,
+      "builtIn": true
+    }
+  ],
+  "hostRewrites": [
+    {
+      "matchHost": "nytimes.com",
+      "matchType": "EXACT_HOST",
+      "kind": "PATH_PREFIX_REWRITE",
+      "targetHost": "archive.md",
+      "preserveHostInPath": true,
+      "enabled": false,
+      "isBuiltIn": true
+    },
+    {
+      "matchHost": "geocities.com",
+      "matchType": "EXACT_HOST",
+      "kind": "PATH_PREFIX_REWRITE",
+      "targetHost": "web.archive.org/web/*/",
+      "preserveHostInPath": true,
+      "enabled": false,
+      "isBuiltIn": true
+    },
+    {
+      "matchHost": "www.tiktok.com",
+      "matchType": "EXACT_WWW_HOST",
+      "kind": "HOST_SWAP",
+      "targetHost": "www.seetiktok.com",
+      "preserveHostInPath": false,
+      "enabled": false,
+      "isBuiltIn": true
+    },
+    {
+      "matchHost": "twitter.com",
+      "matchType": "EXACT_HOST",
+      "kind": "HOST_SWAP",
+      "targetHost": "xcancel.com",
+      "preserveHostInPath": false,
+      "enabled": false,
+      "isBuiltIn": true
+    },
+    {
+      "matchHost": "x.com",
+      "matchType": "EXACT_HOST",
+      "kind": "HOST_SWAP",
+      "targetHost": "xcancel.com",
+      "preserveHostInPath": false,
+      "enabled": false,
+      "isBuiltIn": true
+    }
+  ]
+}
