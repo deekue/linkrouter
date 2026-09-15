@@ -49,10 +49,12 @@ jobs:
             app:
               - 'app/**'
               - 'gradle/**'
+              - '.github/workflow/ci.yml'
             docs:
               - 'docs/**'
               - '*.md'
               - 'LICENSE'
+              - '.github/workflow/ci.yml'
 
   actionlint:
     needs: changes
@@ -105,11 +107,11 @@ jobs:
             export ANDROID_HOME="${ANDROID_SDK_ROOT}"
           fi
           export ANDROID_SDK_ROOT ANDROID_HOME
-          SDKMANAGER="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager"
+          ANDROID_CLI="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/android"
 
           # ---- Ensure command-line tools are present (idempotent) -------------
-          if [ ! -x "${SDKMANAGER}" ]; then
-            echo "cmdline-tools not found at ${SDKMANAGER}; downloading official build 11076708..."
+          if [ ! -x "${ANDROID_CLI}" ]; then
+            echo "cmdline-tools not found at ${ANDROID_CLI}; downloading official build 11076708..."
             SDK_TMP="$(mktemp -d)"
             curl -fsSL -o "${SDK_TMP}/cmdline-tools.zip" \
               "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip"
@@ -127,15 +129,7 @@ jobs:
 
           # Make the tooling available for THIS step.
           export PATH="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin:${ANDROID_SDK_ROOT}/platform-tools:${PATH}"
-
-          # ---- Accept licenses, then install the packages we need -------------
-          # Licenses first; sdkmanager --install needs them accepted. Under
-          # `set -o pipefail`, a plain `yes | sdkmanager --licenses` returns 141
-          # (`yes` dies on SIGPIPE after the prompts are answered), which would
-          # fail the step, so guard it as non-fatal; a real failure resurfaces at
-          # the --install call right after.
-          yes | "${SDKMANAGER}" --licenses 2>&1 || echo "::warning::'sdkmanager --licenses' exited non-zero (expected once licenses are accepted); continuing."
-          "${SDKMANAGER}" --install "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+          "${ANDROID_CLI}" sdk install "platforms;android-36" "build-tools;36.0.0" "platform-tools"
 
           # ---- Persist environment for the Gradle steps that follow -----------
           # A plain `run:` step does NOT leak exports to later steps; GITHUB_ENV /
@@ -148,14 +142,14 @@ jobs:
 
           # ---- Diagnostics for the logs ---------------------------------------
           echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT}"
-          "${SDKMANAGER}" --version
+          "${ANDROID_CLI}" --version
           ls -la "${ANDROID_SDK_ROOT}"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
 
       - name: Cache Gradle configuration cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .gradle/configuration-cache
           # NOTE: add gradle/libs.versions.toml and init.gradle to hashFiles if/when introduced
