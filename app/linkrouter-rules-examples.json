@@ -73,108 +73,108 @@
     {
       "param": "original_uri",
       "host": "facebook.com",
-      "enabled": false,
+      "enabled": true,
       "builtIn": true
     },
     {
       "param": "feature",
       "host": "youtube.com",
-      "enabled": false,
+      "enabled": true,
       "builtIn": true
     },
     {
       "param": "si",
       "host": "youtube.com",
-      "enabled": false,
+      "enabled": true,
       "builtIn": true
     },
     {
       "param": "igshid",
       "host": "instagram.com",
-      "enabled": false,
+      "enabled": true,
       "builtIn": true
     },
     {
       "param": "igsi",
       "host": "instagram.com",
-      "enabled": false,
+      "enabled": true,
       "builtIn": true
     },
     {
       "param": "_t",
       "host": "tiktok.com",
-      "enabled": false,
+      "enabled": true,
       "builtIn": true
     },
     {
       "param": "mc_cid",
-      "enabled": false,
+      "enabled": true,
       "builtIn": true
     },
     {
       "param": "mc_eid",
-      "enabled": false,
+      "enabled": true,
       "builtIn": true
     },
     {
       "param": "sharer_id",
-      "enabled": false,
+      "enabled": true,
       "builtIn": true
     },
     {
       "param": "fbid",
-      "enabled": false,
+      "enabled": true,
       "builtIn": true
     },
     {
       "param": "fbclid",
-      "enabled": false,
+      "enabled": true,
       "builtIn": true
     },
     {
       "param": "msclkid",
-      "enabled": false,
+      "enabled": true,
       "builtIn": true
     },
     {
       "param": "gclsrc",
-      "enabled": false,
+      "enabled": true,
       "builtIn": true
     },
     {
       "param": "gclid",
-      "enabled": false,
+      "enabled": true,
       "builtIn": true
     },
     {
       "param": "utm_content",
-      "enabled": false,
+      "enabled": true,
       "builtIn": true
     },
     {
       "param": "utm_term",
-      "enabled": false,
+      "enabled": true,
       "builtIn": true
     },
     {
       "param": "utm_campaign",
-      "enabled": false,
+      "enabled": true,
       "builtIn": true
     },
     {
       "param": "utm_medium",
-      "enabled": false,
+      "enabled": true,
       "builtIn": true
     },
     {
       "param": "utm_source",
-      "enabled": false,
+      "enabled": true,
       "builtIn": true
     },
     {
       "param": "stkn",
       "host": "instagram.com",
-      "enabled": false,
+      "enabled": true,
       "builtIn": true
     }
   ],

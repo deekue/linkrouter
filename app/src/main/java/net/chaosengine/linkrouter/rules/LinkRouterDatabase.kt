@@ -163,34 +163,15 @@ abstract class LinkRouterDatabase : RoomDatabase() {
          * swallowed: seeding must never crash app startup or a migration.
          */
         fun seedBuiltInHostRewrites(db: SupportSQLiteDatabase) {
-            // (id, matchHost, matchType, kind, targetHost, preserveHostInPath)
-            val builtIns = listOf(
-                Triple(-51L, Pair("x.com", Pair(RewriteMatchType.EXACT_HOST, RewriteKind.HOST_SWAP)), Pair("twitter.com", false)),
-                Triple(-52L, Pair("www.tiktok.com", Pair(RewriteMatchType.EXACT_WWW_HOST, RewriteKind.HOST_SWAP)), Pair("www.seetiktok.com", false)),
-                Triple(-53L, Pair("nytimes.com", Pair(RewriteMatchType.EXACT_HOST, RewriteKind.PATH_PREFIX_REWRITE)), Pair("archive.md", true)),
-                Triple(-54L, Pair("geocities.com", Pair(RewriteMatchType.EXACT_HOST, RewriteKind.PATH_PREFIX_REWRITE)), Pair("web.archive.org/web/*/", false)),
-            )
-            // Fixed priorities for the seeds (per spec: 1, 2, 3, 4). User inserts
-            // are assigned `maxPriority + 1`, so they always land above the seeds
-            // and never collide with them.
-            val priorities = listOf(1, 2, 3, 4)
             try {
-                builtIns.forEachIndexed { index, seed ->
-                    val (id, hostAndKind, targetAndFlag) = seed
-                    val (matchHost, matchAndKind) = hostAndKind
-                    val (targetHost, preserve) = targetAndFlag
-                    val (matchType, kind) = matchAndKind
-                    val priority = priorities[index]
-                    val preserveInt = if (preserve) 1 else 0
-                    // `INSERT OR IGNORE` (id) + `NOT EXISTS (matchHost)` make this
-                    // seed idempotent: it neither re-inserts nor overwrites when
-                    // ANY row with this matchHost already exists — user-toggled
-                    // (enabled = 1) seeds are never touched.
+                builtInHostRewrites.forEach { hr ->
+                    val enabledInt = if (hr.enabled) 1 else 0
+                    val preserveInt = if (hr.preserveHostInPath) 1 else 0
                     db.execSQL(
                         "INSERT OR IGNORE INTO host_rewrites " +
                             "(id, matchHost, matchType, kind, targetHost, preserveHostInPath, enabled, priority, isBuiltIn) " +
-                            "SELECT $id, '$matchHost', '${matchType.name}', '${kind.name}', '$targetHost', $preserveInt, 0, $priority, 1 " +
-                            "WHERE NOT EXISTS (SELECT 1 FROM host_rewrites WHERE matchHost = '$matchHost')"
+                            "SELECT ${hr.id}, '${hr.matchHost}', '${hr.matchType.name}', '${hr.kind.name}', '${hr.targetHost}', $preserveInt, $enabledInt, ${hr.priority}, 1 " +
+                            "WHERE NOT EXISTS (SELECT 1 FROM host_rewrites WHERE matchHost = '${hr.matchHost}')"
                     )
                 }
             } catch (e: Exception) {
