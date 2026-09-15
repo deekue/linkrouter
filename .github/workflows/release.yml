@@ -54,6 +54,9 @@ jobs:
         with:
           fetch-depth: 0 # full history so release notes can be generated
 
+      - name: Load shared env vars
+        run: cat config.env >> "$GITHUB_ENV"
+
       - name: Resolve release version
         id: version
         shell: bash
@@ -76,76 +79,19 @@ jobs:
           echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
           echo "Tag to create: v$VERSION (versionCode $VERSION_CODE)"
 
-      - name: Set up JDK 21
+      - name: Set up JDK
         uses: actions/setup-java@v6
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: ${{ env.JAVA_VERSION }}
 
-      - name: Set up Android SDK (API 36, build-tools 36.0.0)
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          # ---- Choose ONE consistent SDK root for the whole job ---------------
-          # We no longer assume the runner preinstalls cmdline-tools in a path we
-          # can trust (that caused the original failure). If ANDROID_SDK_ROOT is
-          # already set and points at a usable cmdline-tools (fast path), keep it;
-          # otherwise install everything into a home-directory SDK root that the
-          # job user can always write to. ANDROID_HOME always mirrors
-          # ANDROID_SDK_ROOT so Gradle and the tooling agree on one location.
-          if [ -n "${ANDROID_SDK_ROOT:-}" ] && [ -x "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager" ]; then
-            export ANDROID_HOME="${ANDROID_SDK_ROOT}"
-          else
-            export ANDROID_SDK_ROOT="${HOME}/.android-sdk"
-            export ANDROID_HOME="${ANDROID_SDK_ROOT}"
-          fi
-          export ANDROID_SDK_ROOT ANDROID_HOME
-          SDKMANAGER="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager"
-
-          # ---- Ensure command-line tools are present (idempotent) -------------
-          if [ ! -x "${SDKMANAGER}" ]; then
-            echo "cmdline-tools not found at ${SDKMANAGER}; downloading official build 11076708..."
-            SDK_TMP="$(mktemp -d)"
-            curl -fsSL -o "${SDK_TMP}/cmdline-tools.zip" \
-              "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip"
-            if command -v unzip > /dev/null 2>&1; then
-              unzip -q -o "${SDK_TMP}/cmdline-tools.zip" -d "${SDK_TMP}"
-            else
-              python3 -m zipfile -e "${SDK_TMP}/cmdline-tools.zip" "${SDK_TMP}"
-            fi
-            # The zip unpacks to cmdline-tools/<version>/; normalize onto .../latest.
-            rm -rf "${ANDROID_SDK_ROOT}/cmdline-tools/latest"
-            mkdir -p "${ANDROID_SDK_ROOT}/cmdline-tools"
-            mv "${SDK_TMP}/cmdline-tools" "${ANDROID_SDK_ROOT}/cmdline-tools/latest"
-            rm -rf "${SDK_TMP}"
-          fi
-
-          # Make the tooling available for THIS step.
-          export PATH="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin:${ANDROID_SDK_ROOT}/platform-tools:${PATH}"
-
-          # ---- Accept licenses, then install the packages we need -------------
-          # Licenses first; sdkmanager --install needs them accepted. Under
-          # `set -o pipefail`, a plain `yes | sdkmanager --licenses` returns 141
-          # (`yes` dies on SIGPIPE after the prompts are answered), which would
-          # fail the step, so guard it as non-fatal; a real failure resurfaces at
-          # the --install call right after.
-          yes | "${SDKMANAGER}" --licenses 2>&1 || echo "::warning::'sdkmanager --licenses' exited non-zero (expected once licenses are accepted); continuing."
-          "${SDKMANAGER}" --install "platforms;android-36" "build-tools;36.0.0" "platform-tools"
-
-          # ---- Persist environment for the Gradle steps that follow -----------
-          # A plain `run:` step does NOT leak exports to later steps; GITHUB_ENV /
-          # GITHUB_PATH do. This is what lets setup-gradle / assemble / lint /
-          # test actually see the SDK.
-          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
-          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
-          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
-
-          # ---- Diagnostics for the logs ---------------------------------------
-          echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT}"
-          "${SDKMANAGER}" --version
-          ls -la "${ANDROID_SDK_ROOT}"
+      - name: Set up Android SDK
+        uses: premex-ab/setup-android-cli@v1
+        with:
+          packages: |
+            platforms/android-${{ env.ANDROID_API_VER }}
+            build-tools/${{ env.ANDROID_BUILD_TOOLS }}
+            platform-tools
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
