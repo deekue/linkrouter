@@ -60,11 +60,13 @@ object HostRewriter {
      * `nytimes.com/blah` → `archive.md/nytimes.com/blah` and
      * `www.nytimes.com/blah` → `archive.md/www.nytimes.com/blah`. When the
      * target carries an explicit path (`host/prefix`), that path becomes the
-     * prefix and is kept VERBATIM — a trailing `/` is part of the rewrite and
-     * is never stripped (so a `geocities.com/` target prefix keeps its trailing
-     * slash), while nesting joins at exactly one `/` (so `geocities.com/a/b`
-     * lands under that prefix without a doubled slash). The authority is the
-     * normalized target
+     * prefix and is kept VERBATIM — a `*` placeholder and any trailing `/`
+     * survive, and any trailing path segments of the target (for example the
+     * original host as the final segment in a Wayback-style rule) are
+     * preserved — then the incoming path suffix is joined at exactly one `/`
+     * (no doubled slashes); see the line comment below and HostRewriterTest
+     * for the concrete `web.archive.org` Wayback example. The authority
+     * is the normalized target
      * host, a non-implicit port is carried over, and the original
      * path/query/fragment are kept verbatim. A missing original path is
      * normalized to `/` so an incoming `nytimes.com` becomes
@@ -76,9 +78,9 @@ object HostRewriter {
 
         // Split the target into its host part (normalized) and an optional
         // path part (kept VERBATIM — PATH_PREFIX_REWRITE targets such as
-        // `web.archive.org/web/*/` carry a trailing slash that is part of the
-        // rewrite, not host noise). Normalizing the whole string would trim the
-        // trailing '/' and mangle the path segment.
+        // `web.archive.org/web/*/geocities.com` carry a `*` placeholder and a
+        // path segment that are part of the rewrite, not host noise).
+        // Normalizing the whole string would mangle the path segment.
         val rawTarget = rule.targetHost.trim()
         val targetSplit = rawTarget.indexOf('/')
         val targetHostPart = if (targetSplit >= 0) rawTarget.substring(0, targetSplit) else rawTarget

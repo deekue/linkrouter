@@ -246,62 +246,68 @@ class HostRewriterTest {
         )
     }
 
-    // --- PATH_PREFIX_REWRITE: target path prefix (trailing slash) ---------
+    // --- PATH_PREFIX_REWRITE: geocities.com -> wayback prefix --------------
+    // Corrected example: the target carries a `*` placeholder and the original
+    // host at the END of the path; BOTH the `*` and the host segment must
+    // survive verbatim, joined to the incoming suffix at exactly one '/'.
 
     @Test
-    fun path_prefix_target_path_root_preserves_trailing_slash() {
-        // geocities.com -> web.archive.org/web/*/ : the trailing '/' on the
-        // target prefix is intentional and must survive.
+    fun geocities_root_prefix_preserved_verbatim() {
+        // geocities.com/ -> web.archive.org/web/*/geocities.com/ : the '*'
+        // placeholder and the 'geocities.com' segment are preserved verbatim
+        // and the root path terminator is kept (the Wayback URL structure).
         val url = "https://geocities.com/"
         val rule = rewrite(
             matchHost = "geocities.com",
             kind = RewriteKind.PATH_PREFIX_REWRITE,
-            targetHost = "web.archive.org/web/*/",
+            targetHost = "web.archive.org/web/*/geocities.com",
         )
         assertEquals(
-            "https://web.archive.org/web/*/",
+            "https://web.archive.org/web/*/geocities.com/",
             HostRewriter.rewrite(url, listOf(rule)),
         )
     }
 
     @Test
-    fun path_prefix_target_path_nested_joins_at_single_slash() {
-        val url = "https://geocities.com/a/b"
+    fun geocities_nested_joins_at_single_slash_star_preserved() {
+        val url = "https://geocities.com/SiliconValley/blah"
         val rule = rewrite(
             matchHost = "geocities.com",
             kind = RewriteKind.PATH_PREFIX_REWRITE,
-            targetHost = "web.archive.org/web/*/",
+            targetHost = "web.archive.org/web/*/geocities.com",
         )
+        // '*' preserved, 'geocities.com' segment kept, suffix at one '/'.
         assertEquals(
-            "https://web.archive.org/web/*/a/b",
+            "https://web.archive.org/web/*/geocities.com/SiliconValley/blah",
             HostRewriter.rewrite(url, listOf(rule)),
         )
     }
 
     @Test
-    fun path_prefix_target_path_without_trailing_slash_no_double_slash() {
-        val url = "https://geocities.com/a/b"
+    fun geocities_prefix_keeps_trailing_slash_when_present() {
+        // If the target prefix DOES end in '/' the join must NOT double it.
+        val url = "https://geocities.com/SiliconValley/blah"
         val rule = rewrite(
             matchHost = "geocities.com",
             kind = RewriteKind.PATH_PREFIX_REWRITE,
-            targetHost = "web.archive.org/web/*",
+            targetHost = "web.archive.org/web/*/geocities.com/",
         )
         assertEquals(
-            "https://web.archive.org/web/*/a/b",
+            "https://web.archive.org/web/*/geocities.com/SiliconValley/blah",
             HostRewriter.rewrite(url, listOf(rule)),
         )
     }
 
     @Test
-    fun path_prefix_target_path_preserves_query_fragment_and_encoding() {
+    fun geocities_prefix_preserves_query_fragment_and_encoding() {
         val url = "https://geocities.com/a?x=1%202#frag"
         val rule = rewrite(
             matchHost = "geocities.com",
             kind = RewriteKind.PATH_PREFIX_REWRITE,
-            targetHost = "web.archive.org/web/*/",
+            targetHost = "web.archive.org/web/*/geocities.com",
         )
         assertEquals(
-            "https://web.archive.org/web/*/a?x=1%202#frag",
+            "https://web.archive.org/web/*/geocities.com/a?x=1%202#frag",
             HostRewriter.rewrite(url, listOf(rule)),
         )
     }
