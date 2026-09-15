@@ -246,6 +246,83 @@ class HostRewriterTest {
         )
     }
 
+    // --- PATH_PREFIX_REWRITE: target path prefix (trailing slash) ---------
+
+    @Test
+    fun path_prefix_target_path_root_preserves_trailing_slash() {
+        // geocities.com -> web.archive.org/web/*/ : the trailing '/' on the
+        // target prefix is intentional and must survive.
+        val url = "https://geocities.com/"
+        val rule = rewrite(
+            matchHost = "geocities.com",
+            kind = RewriteKind.PATH_PREFIX_REWRITE,
+            targetHost = "web.archive.org/web/*/",
+        )
+        assertEquals(
+            "https://web.archive.org/web/*/",
+            HostRewriter.rewrite(url, listOf(rule)),
+        )
+    }
+
+    @Test
+    fun path_prefix_target_path_nested_joins_at_single_slash() {
+        val url = "https://geocities.com/a/b"
+        val rule = rewrite(
+            matchHost = "geocities.com",
+            kind = RewriteKind.PATH_PREFIX_REWRITE,
+            targetHost = "web.archive.org/web/*/",
+        )
+        assertEquals(
+            "https://web.archive.org/web/*/a/b",
+            HostRewriter.rewrite(url, listOf(rule)),
+        )
+    }
+
+    @Test
+    fun path_prefix_target_path_without_trailing_slash_no_double_slash() {
+        val url = "https://geocities.com/a/b"
+        val rule = rewrite(
+            matchHost = "geocities.com",
+            kind = RewriteKind.PATH_PREFIX_REWRITE,
+            targetHost = "web.archive.org/web/*",
+        )
+        assertEquals(
+            "https://web.archive.org/web/*/a/b",
+            HostRewriter.rewrite(url, listOf(rule)),
+        )
+    }
+
+    @Test
+    fun path_prefix_target_path_preserves_query_fragment_and_encoding() {
+        val url = "https://geocities.com/a?x=1%202#frag"
+        val rule = rewrite(
+            matchHost = "geocities.com",
+            kind = RewriteKind.PATH_PREFIX_REWRITE,
+            targetHost = "web.archive.org/web/*/",
+        )
+        assertEquals(
+            "https://web.archive.org/web/*/a?x=1%202#frag",
+            HostRewriter.rewrite(url, listOf(rule)),
+        )
+    }
+
+    @Test
+    fun path_prefix_rewrite_nytimes_to_archive_prefix_host_in_path() {
+        // Non-wildcard target prefix, host preserved: existing canonical case
+        // still works (no double slash, prefix intact).
+        val url = "https://nytimes.com/blah"
+        val rule = rewrite(
+            matchHost = "nytimes.com",
+            kind = RewriteKind.PATH_PREFIX_REWRITE,
+            targetHost = "archive.md/nytimes",
+            preserveHostInPath = false,
+        )
+        assertEquals(
+            "https://archive.md/nytimes/blah",
+            HostRewriter.rewrite(url, listOf(rule)),
+        )
+    }
+
     @Test
     fun path_prefix_rewrite_without_preserve_flag_leaves_path_unchanged() {
         val url = "https://nytimes.com/blah"

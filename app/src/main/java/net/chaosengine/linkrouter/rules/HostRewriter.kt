@@ -58,36 +58,62 @@ object HostRewriter {
      * received, `www.` and all, userinfo/port removed) is prepended:
      * `newPath = "/" + literalHost + originalPath`, so
      * `nytimes.com/blah` → `archive.md/nytimes.com/blah` and
-     * `www.nytimes.com/blah` → `archive.md/www.nytimes.com/blah`. The authority
-     * is the normalized `targetHost`, a non-implicit port is carried over, and
-     * the original path/query/fragment are kept verbatim. A missing original
-     * path is normalized to `/` so an incoming `nytimes.com` becomes
+     * `www.nytimes.com/blah` → `archive.md/www.nytimes.com/blah`. When the
+     * target carries an explicit path (`host/prefix`), that path becomes the
+     * prefix and is kept VERBATIM — a trailing `/` is part of the rewrite and
+     * is never stripped (so a `geocities.com/` target prefix keeps its trailing
+     * slash), while nesting joins at exactly one `/` (so `geocities.com/a/b`
+     * lands under that prefix without a doubled slash). The authority is the
+     * normalized target
+     * host, a non-implicit port is carried over, and the original
+     * path/query/fragment are kept verbatim. A missing original path is
+     * normalized to `/` so an incoming `nytimes.com` becomes
      * `archive.md/nytimes.com/` (documented, acceptable).
      */
     fun applyOne(url: String, rule: HostRewrite): String? {
         val parsed = parse(url) ?: return null
         if (!matchesHost(parsed.host, rule)) return null
 
-        val target = RuleEngine.normalizeHost(rule.targetHost)
+        // Split the target into its host part (normalized) and an optional
+        // path part (kept VERBATIM — PATH_PREFIX_REWRITE targets such as
+        // `web.archive.org/web/*/` carry a trailing slash that is part of the
+        // rewrite, not host noise). Normalizing the whole string would trim the
+        // trailing '/' and mangle the path segment.
+        val rawTarget = rule.targetHost.trim()
+        val targetSplit = rawTarget.indexOf('/')
+        val targetHostPart = if (targetSplit >= 0) rawTarget.substring(0, targetSplit) else rawTarget
+        val targetPathPart = if (targetSplit >= 0) rawTarget.substring(targetSplit) else ""
+        val target = RuleEngine.normalizeHost(targetHostPart)
         if (target.isEmpty()) return null // malformed stored rule (D6)
+        val targetPath = if (targetPathPart.isNotEmpty() && !targetPathPart.startsWith('/')) "/$targetPathPart" else targetPathPart
         val portPart = parsed.portIfExplicit(rule.kind)
 
-        return when (rule.kind) {
-            RewriteKind.HOST_SWAP ->
-                buildUrl(parsed.scheme, target, portPart, parsed.path, parsed.query, parsed.fragment)
+        val finalPath = when (rule.kind) {
+            RewriteKind.HOST_SWAP -> parsed.path
 
             RewriteKind.PATH_PREFIX_REWRITE -> {
                 // Path is match-irrelevant; once the host matched, rewrite it.
                 // Normalise a missing path to "/" so the prefix is terminated.
                 val originalPath = if (parsed.path.isEmpty()) "/" else parsed.path
-                val newPath = if (rule.preserveHostInPath && parsed.rawHost.isNotEmpty()) {
-                    "/" + parsed.rawHost + originalPath
+                val suffix = if (rule.preserveHostInPath && parsed.rawHost.isNotEmpty()) {
+                    parsed.rawHost + originalPath
                 } else {
                     originalPath
                 }
-                buildUrl(parsed.scheme, target, portPart, newPath, parsed.query, parsed.fragment)
+                // Drop exactly ONE leading '/' — it is the separator from the
+                // prefix — so the join below controls the slash count. A lone
+                // root '/' then becomes the empty suffix, and any trailing '/'
+                // that was part of the target prefix (or the root) is preserved.
+                val relSuffix = suffix.removePrefix("/")
+                val base = targetPath
+                when {
+                    base.isEmpty() -> "/$relSuffix"
+                    base.endsWith('/') -> base + relSuffix
+                    else -> base + "/" + relSuffix
+                }
             }
         }
+        return buildUrl(parsed.scheme, target, portPart, finalPath, parsed.query, parsed.fragment)
     }
 
     /**
