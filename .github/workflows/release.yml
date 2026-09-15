@@ -55,7 +55,7 @@ jobs:
           fetch-depth: 0 # full history so release notes can be generated
 
       - name: Load shared env vars
-        run: cat config.env >> $GITHUB_ENV
+        run: cat config.env >> "$GITHUB_ENV"
 
       - name: Resolve release version
         id: version

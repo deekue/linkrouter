@@ -86,7 +86,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Load shared env vars
-        run: cat config.env >> $GITHUB_ENV
+        run: cat config.env >> "$GITHUB_ENV"
 
       - name: Set up JDK
         uses: actions/setup-java@v6
