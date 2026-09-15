@@ -92,15 +92,15 @@ jobs:
         uses: actions/setup-java@v6
         with:
           distribution: temurin
-          java-version: "$JAVA_VERSION"
+          java-version: ${{ env.JAVA_VERSION }}
 
       - name: Set up Android SDK
         uses: premex-ab/setup-android-cli@v1
         with:
           packages: |
-            "platforms/android-$ANDROID_API_VER"
-            "build-tools/$ANDROID_BUILD_TOOLS"
-            "platform-tools"
+            platforms/android-${{ env.ANDROID_API_VER }}
+            build-tools/${{ env.ANDROID_BUILD_TOOLS }}
+            platform-tools
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
