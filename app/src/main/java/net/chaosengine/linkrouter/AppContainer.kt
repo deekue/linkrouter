@@ -6,6 +6,9 @@ import androidx.room.RoomDatabase
 import androidx.sqlite.db.SupportSQLiteDatabase
 import net.chaosengine.linkrouter.browsers.BrowserRegistry
 import net.chaosengine.linkrouter.rules.ActivityWebResolver
+import net.chaosengine.linkrouter.rules.builtInQueryParamFilters
+import net.chaosengine.linkrouter.rules.builtInRedirectFormats
+import net.chaosengine.linkrouter.rules.builtInShortenerHosts
 import net.chaosengine.linkrouter.rules.HostRewriteRepository
 import net.chaosengine.linkrouter.rules.LinkRouterDatabase
 import net.chaosengine.linkrouter.rules.RedirectFormatRepository
@@ -89,12 +92,16 @@ object AppContainer {
      */
     private fun ensureBuiltInFormat(db: SupportSQLiteDatabase) {
         try {
-            db.execSQL(
-                "INSERT OR IGNORE INTO redirect_formats " +
-                    "(id, name, pattern, matchType, extractType, extractTarget, enabled, priority, isBuiltIn, openRealDestination) " +
-                    "SELECT -1, 'Google', 'google.com/url', 'PATH_PREFIX', 'QUERY_PARAM', 'q', 1, 1000, 1, 0 " +
-                    "WHERE NOT EXISTS (SELECT 1 FROM redirect_formats WHERE isBuiltIn = 1)"
-            )
+            builtInRedirectFormats.forEach { rf ->
+                val enabledInt = if (rf.enabled) 1 else 0
+                val orInt = if (rf.openRealDestination) 1 else 0
+                db.execSQL(
+                    "INSERT OR IGNORE INTO redirect_formats " +
+                        "(id, name, pattern, matchType, extractType, extractTarget, enabled, priority, isBuiltIn, openRealDestination) " +
+                        "SELECT ${rf.id}, '${rf.name}', '${rf.pattern}', '${rf.matchType.name}', '${rf.extractType.name}', '${rf.extractTarget}', $enabledInt, ${rf.priority}, 1, $orInt " +
+                        "WHERE NOT EXISTS (SELECT 1 FROM redirect_formats WHERE id = ${rf.id})"
+                )
+            }
         } catch (e: Exception) {
             // Defensive: never let seeding take the app down.
         }
@@ -107,31 +114,15 @@ object AppContainer {
      * A schema hiccup must not crash app startup, so failures are swallowed.
      */
     private fun ensureBuiltInShortenerHosts(db: SupportSQLiteDatabase) {
-        // Triple of (host, name, pathPrefix) — pathPrefix is null for host-only
-        // rows (existing built-ins are unchanged: name == host).
-        val builtIns = listOf(
-            -21L to Triple("t.co", "t.co", null),
-            -22L to Triple("bit.ly", "bit.ly", null),
-            -23L to Triple("is.gd", "is.gd", null),
-            -24L to Triple("tinyurl.com", "tinyurl.com", null),
-            -25L to Triple("ow.ly", "ow.ly", null),
-            -26L to Triple("buff.ly", "buff.ly", null),
-            -27L to Triple("www.tiktok.com", "TikTok short links", "/t/"),
-            -28L to Triple("www.facebook.com", "Facebook share links", "/share/r/"),
-        )
         try {
-            builtIns.forEach { (id, entry) ->
-                val (host, name, pathPrefix) = entry
-                val prefixLiteral = pathPrefix?.let { "'$it'" } ?: "NULL"
-                // Invariant: the NOT EXISTS guard makes this seed never insert or
-                // overwrite when ANY row with this host exists — enabled or not —
-                // so user-toggled built-ins (enabled = 1) are never touched.
-                // INSERT OR IGNORE on the id is a second belt-and-braces layer.
+            builtInShortenerHosts.forEach { sh ->
+                val enabledInt = if (sh.enabled) 1 else 0
+                val prefixLiteral = sh.pathPrefix?.let { "'$it'" } ?: "NULL"
                 db.execSQL(
                     "INSERT OR IGNORE INTO shortener_hosts " +
                         "(id, name, host, pathPrefix, enabled, priority, isBuiltIn) " +
-                        "SELECT $id, '$name', '$host', $prefixLiteral, 0, 1000, 1 " +
-                        "WHERE NOT EXISTS (SELECT 1 FROM shortener_hosts WHERE host = '$host')"
+                        "SELECT ${sh.id}, '${sh.name}', '${sh.host}', $prefixLiteral, $enabledInt, ${sh.priority}, 1 " +
+                        "WHERE NOT EXISTS (SELECT 1 FROM shortener_hosts WHERE host = '${sh.host}')"
                 )
             }
         } catch (e: Exception) {
@@ -147,42 +138,19 @@ object AppContainer {
      * app startup, so failures are swallowed.
      */
     private fun ensureBuiltInQueryParamFilters(db: SupportSQLiteDatabase) {
-        // id to (host, param, name) — host is null for global rows, else a
-        // lowercase scope host.
-        val builtIns = listOf(
-            -31L to Triple(null, "utm_source", "utm_source (global)"),
-            -32L to Triple(null, "utm_medium", "utm_medium (global)"),
-            -33L to Triple(null, "utm_campaign", "utm_campaign (global)"),
-            -34L to Triple(null, "utm_term", "utm_term (global)"),
-            -35L to Triple(null, "utm_content", "utm_content (global)"),
-            -36L to Triple(null, "gclid", "gclid (global)"),
-            -37L to Triple(null, "gclsrc", "gclsrc (global)"),
-            -38L to Triple(null, "msclkid", "msclkid (global)"),
-            -39L to Triple(null, "fbclid", "fbclid (global)"),
-            -40L to Triple(null, "fbid", "fbid (global)"),
-            -41L to Triple(null, "sharer_id", "sharer_id (global)"),
-            -42L to Triple(null, "mc_eid", "mc_eid (global)"),
-            -43L to Triple(null, "mc_cid", "mc_cid (global)"),
-            -44L to Triple("tiktok.com", "_t", "_t (TikTok)"),
-            -45L to Triple("instagram.com", "igsi", "igsi (Instagram)"),
-            -46L to Triple("instagram.com", "igshid", "igshid (Instagram)"),
-            -47L to Triple("youtube.com", "si", "si (YouTube)"),
-            -48L to Triple("youtube.com", "feature", "feature (YouTube)"),
-            -49L to Triple("facebook.com", "original_uri", "original_uri (Facebook)"),
-        )
         try {
-            builtIns.forEach { (id, entry) ->
-                val (host, param, name) = entry
-                val hostLiteral = host?.let { "'$it'" } ?: "NULL"
-                val existsGuard = if (host == null) {
-                    "WHERE NOT EXISTS (SELECT 1 FROM query_param_filters WHERE param = '$param' AND host IS NULL)"
+            builtInQueryParamFilters.forEach { qpf ->
+                val enabledInt = if (qpf.enabled) 1 else 0
+                val hostLiteral = qpf.host?.let { "'$it'" } ?: "NULL"
+                val existsGuard = if (qpf.host == null) {
+                    "WHERE NOT EXISTS (SELECT 1 FROM query_param_filters WHERE param = '${qpf.param}' AND host IS NULL)"
                 } else {
-                    "WHERE NOT EXISTS (SELECT 1 FROM query_param_filters WHERE param = '$param' AND host = '$host')"
+                    "WHERE NOT EXISTS (SELECT 1 FROM query_param_filters WHERE param = '${qpf.param}' AND host = '${qpf.host}')"
                 }
                 db.execSQL(
                     "INSERT OR IGNORE INTO query_param_filters " +
                         "(id, name, host, param, enabled, priority, isBuiltIn) " +
-                        "SELECT $id, '$name', $hostLiteral, '$param', 1, 1000, 1 " +
+                        "SELECT ${qpf.id}, '${qpf.name}', $hostLiteral, '${qpf.param}', $enabledInt, ${qpf.priority}, 1 " +
                         "$existsGuard"
                 )
             }
