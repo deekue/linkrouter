@@ -31,6 +31,7 @@
     public static *** i(...);
     public static *** v(...);
     public static *** w(...);
+    public static *** println(int, java.lang.String, java.lang.String);
 }
 
 # --- Moshi (JSON) codegen + R8 (release) ---
