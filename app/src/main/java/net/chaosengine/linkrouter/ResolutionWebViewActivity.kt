@@ -156,9 +156,11 @@ class ResolutionWebViewActivity : Activity() {
                         view.loadUrl(request.url.toString())
                         return true
                     }
-                    // Non-web scheme (tel:, mailto:, custom): let the system take it;
-                    // the settle detector will NOT settle on it (scheme guard).
-                    return false
+                    // Non-web scheme (fb://, tel:, mailto:, etc.): consume and ignore.
+                    // LinkRouter resolves to the final https URL for the browser (D6);
+                    // native app deep-links are out of scope. Consuming (return true without
+                    // loading) prevents the WebView from showing a brief error page.
+                    return true
                 }
 
                 override fun onPageStarted(view: WebView, url: String, favicon: android.graphics.Bitmap?) {
