@@ -33,13 +33,36 @@ class SettleDetector(private val graceMillis: Long = 1500L, private val clock: (
     /** The stable final URL, or null when nothing has settled yet. */
     val settledUrl: String?
         get() {
-            val candidate = lastFinishedUrl ?: return null
-            if (schemeOf(candidate) !in WEB_SCHEMES) return null
+            val candidate = lastFinishedUrl
+            if (candidate == null) {
+                ShortenResolveLog.d("settle: NOT settled (no finished page yet; lastStarted=$lastStartedUrl)")
+                return null
+            }
+            if (schemeOf(candidate) !in WEB_SCHEMES) {
+                ShortenResolveLog.d("settle: NOT settled (non-web scheme for candidate=$candidate)")
+                return null
+            }
             val now = clock()
             val stableSince = lastFinishedAt
-            if (now - stableSince < graceMillis) return null
+            if (now - stableSince < graceMillis) {
+                ShortenResolveLog.d(
+                    "settle: NOT settled (grace pending: now-stableSince=${now - stableSince}ms < grace=${graceMillis}ms; " +
+                    "lastStartedAt=$lastStartedAt lastFinishedAt=$lastFinishedAt candidate=$candidate)"
+                )
+                return null
+            }
             // A navigation that began after the finish invalidates the settle.
-            if (lastStartedAt > lastFinishedAt) return null
+            if (lastStartedAt > lastFinishedAt) {
+                ShortenResolveLog.d(
+                    "settle: NOT settled (navigation resumed after finish: lastStartedAt=$lastStartedAt " +
+                    "lastStartedUrl=$lastStartedUrl > lastFinishedAt=$lastFinishedAt candidate=$candidate)"
+                )
+                return null
+            }
+            ShortenResolveLog.d(
+                "settle: SETTLED candidate=$candidate (lastStartedAt=$lastStartedAt lastFinishedAt=$lastFinishedAt " +
+                "stableFor=${now - stableSince}ms grace=${graceMillis}ms)"
+            )
             return candidate
         }
 
