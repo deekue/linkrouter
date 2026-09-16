@@ -4,6 +4,9 @@
   "redirectFormats": [
     {
       "name": "Google www",
+      "examples": [
+        { "input": "https://www.google.com/url?q=https%3A%2F%2Fexample.com%2Fpage", "expectedOutput": "https://example.com/page" }
+      ],
       "pattern": "www.google.com/url",
       "matchType": "PATH_PREFIX",
       "extractType": "QUERY_PARAM",
@@ -15,6 +18,9 @@
     },
     {
       "name": "Google",
+      "examples": [
+        { "input": "https://google.com/url?q=https%3A%2F%2Fexample.com%2Fx", "expectedOutput": "https://example.com/x" }
+      ],
       "pattern": "google.com/url",
       "matchType": "PATH_PREFIX",
       "extractType": "QUERY_PARAM",
@@ -26,6 +32,9 @@
     },
     {
       "name": "Facebook (redirect.php)",
+      "examples": [
+        { "input": "https://www.facebook.com/redirect.php?u=https%3A%2F%2Fexample.com", "expectedOutput": "https://example.com" }
+      ],
       "pattern": "facebook.com/redirect.php",
       "matchType": "PATH_PREFIX",
       "extractType": "QUERY_PARAM",
@@ -37,6 +46,9 @@
     },
     {
       "name": "Facebook (l.php)",
+      "examples": [
+        { "input": "https://l.facebook.com/l.php?u=https%3A%2F%2Fexample.com", "expectedOutput": "https://example.com" }
+      ],
       "pattern": "l.facebook.com/l.php",
       "matchType": "PATH_PREFIX",
       "extractType": "QUERY_PARAM",
@@ -48,6 +60,9 @@
     },
     {
       "name": "Mailchimp/Mandrill",
+      "examples": [
+        { "input": "https://abc5.email.mandrillapp.com/?lc=https%3A%2F%2Fexample.com", "expectedOutput": "https://example.com" }
+      ],
       "pattern": "*.email.mandrillapp.com",
       "matchType": "SUBDOMAIN",
       "extractType": "QUERY_PARAM",
@@ -59,6 +74,9 @@
     },
     {
       "name": "Reddit (in-site)",
+      "examples": [
+        { "input": "https://www.reddit.com/redirect/abc?url=https%3A%2F%2Fexample.com", "expectedOutput": "https://example.com" }
+      ],
       "pattern": "reddit.com/redirect/",
       "matchType": "PATH_PREFIX",
       "extractType": "QUERY_PARAM",

@@ -167,6 +167,30 @@ val generateBuiltIns = tasks.register("generateBuiltIns") {
         sb.appendLine(")")
         sb.appendLine()
 
+        // --- builtInExamples: name -> example input/expectedOutput pairs ---
+        // (read from each rule's optional "examples" array; emptyList() if absent)
+        sb.appendLine("val builtInExamples: Map<String, List<RuleExample>> = mapOf(")
+        for (i in 0 until rf.length()) {
+            val o = rf.getJSONObject(i)
+            sb.appendLine("    \"${o.getString("name")}\" to ")
+            val ex = if (o.has("examples")) o.getJSONArray("examples") else org.json.JSONArray()
+            if (ex.length() == 0) {
+                sb.appendLine("        emptyList(),")
+            } else {
+                sb.appendLine("        listOf(")
+                for (j in 0 until ex.length()) {
+                    val e = ex.getJSONObject(j)
+                    sb.appendLine("            RuleExample(")
+                    sb.appendLine("                input = \"${e.getString("input")}\",")
+                    sb.appendLine("                expectedOutput = \"${e.getString("expectedOutput")}\",")
+                    sb.appendLine("            ),")
+                }
+                sb.appendLine("        ),")
+            }
+        }
+        sb.appendLine(")")
+        sb.appendLine()
+
         // --- queryParamFilters ---
         sb.appendLine("val builtInQueryParamFilters: List<QueryParamFilter> = listOf(")
         val qpf = root.getJSONArray("queryParamFilters")
