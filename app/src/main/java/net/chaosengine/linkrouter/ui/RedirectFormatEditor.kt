@@ -45,6 +45,7 @@ import net.chaosengine.linkrouter.rules.ExtractType
 import net.chaosengine.linkrouter.rules.MatchType
 import net.chaosengine.linkrouter.rules.RedirectFormat
 import net.chaosengine.linkrouter.rules.RedirectFormatValidator
+import net.chaosengine.linkrouter.rules.builtInExamples
 
 @Composable
 @OptIn(ExperimentalLayoutApi::class)
@@ -221,6 +222,10 @@ fun RedirectFormatEditor(
 
                 Spacer(Modifier.height(12.dp))
 
+                BuiltInExamplesSection(existing?.name)
+
+                Spacer(Modifier.height(12.dp))
+
                 Text(
                     context.getString(AppR.string.live_preview),
                     style = MaterialTheme.typography.labelLarge,
@@ -342,5 +347,25 @@ private fun PreviewRow(wrapper: String, destination: String?) {
                 overflow = TextOverflow.Ellipsis,
             )
         }
+    }
+}
+
+/**
+ * Read-only list of example input->output pairs for the built-in rule being
+ * edited, from the generated [builtInExamples] map (seeded from the "examples"
+ * arrays in linkrouter-rules-examples.json). Rendered only for built-ins that
+ * declare examples, capped at `max` entries so the dialog stays compact.
+ */
+@Composable
+private fun BuiltInExamplesSection(ruleName: String?, max: Int = 3) {
+    ruleName ?: return
+    val examples = builtInExamples[ruleName]
+    if (examples.isNullOrEmpty()) return
+    Text(
+        text = "Examples (built-in)",
+        style = MaterialTheme.typography.labelLarge,
+    )
+    examples.take(max).forEach { ex ->
+        PreviewRow(wrapper = ex.input, destination = ex.expectedOutput)
     }
 }
