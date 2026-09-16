@@ -41,6 +41,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import net.chaosengine.linkrouter.rules.QueryParamFilter
+import net.chaosengine.linkrouter.rules.builtInParamFilterExamples
 
 /**
  * Query-param-filter manager (M9). Lists enabled/disabled param filters,
@@ -225,6 +226,7 @@ private fun ParamFilterDialog(
         title = { Text(title) },
         text = {
             Column {
+                BuiltInRuleExamples(initialParam, builtInParamFilterExamples)
                 OutlinedTextField(
                     value = param,
                     onValueChange = { param = it },

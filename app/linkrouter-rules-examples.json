@@ -91,107 +91,227 @@
     {
       "param": "original_uri",
       "host": "facebook.com",
+      "examples": [
+        {
+          "input": "https://www.facebook.com/share/r/xyz/?original_uri=https%3A%2F%2Fenigma.com%2Fp&utm_source=native",
+          "expectedOutput": "https://www.facebook.com/share/r/xyz/?utm_source=native"
+        }
+      ],
       "enabled": true,
       "builtIn": true
     },
     {
       "param": "feature",
       "host": "youtube.com",
+      "examples": [
+        {
+          "input": "https://www.youtube.com/watch?v=AbCd12&feature=share",
+          "expectedOutput": "https://www.youtube.com/watch?v=AbCd12"
+        }
+      ],
       "enabled": true,
       "builtIn": true
     },
     {
       "param": "si",
       "host": "youtube.com",
+      "examples": [
+        {
+          "input": "https://www.youtube.com/watch?v=AbCd12&si=Zz9",
+          "expectedOutput": "https://www.youtube.com/watch?v=AbCd12"
+        }
+      ],
       "enabled": true,
       "builtIn": true
     },
     {
       "param": "igshid",
       "host": "instagram.com",
+      "examples": [
+        {
+          "input": "https://www.instagram.com/reel/Cx1/?igshid=1a2b3c&utm_source=ig_web",
+          "expectedOutput": "https://www.instagram.com/reel/Cx1/?utm_source=ig_web"
+        }
+      ],
       "enabled": true,
       "builtIn": true
     },
     {
       "param": "igsi",
       "host": "instagram.com",
+      "examples": [
+        {
+          "input": "https://www.instagram.com/p/abc123/?igsi=77",
+          "expectedOutput": "https://www.instagram.com/p/abc123/"
+        }
+      ],
       "enabled": true,
       "builtIn": true
     },
     {
       "param": "_t",
       "host": "tiktok.com",
+      "examples": [
+        {
+          "input": "https://www.tiktok.com/@user/video/7123?_t=88233&utm_source=copy",
+          "expectedOutput": "https://www.tiktok.com/@user/video/7123?utm_source=copy"
+        }
+      ],
       "enabled": true,
       "builtIn": true
     },
     {
       "param": "mc_cid",
+      "examples": [
+        {
+          "input": "https://example.com/pricing?mc_cid=d1&utm_source=dl",
+          "expectedOutput": "https://example.com/pricing?utm_source=dl"
+        }
+      ],
       "enabled": true,
       "builtIn": true
     },
     {
       "param": "mc_eid",
+      "examples": [
+        {
+          "input": "https://example.com/pricing?mc_eid=e2&utm_source=dl",
+          "expectedOutput": "https://example.com/pricing?utm_source=dl"
+        }
+      ],
       "enabled": true,
       "builtIn": true
     },
     {
       "param": "sharer_id",
+      "examples": [
+        {
+          "input": "https://example.com/page?sharer_id=42&utm_source=share",
+          "expectedOutput": "https://example.com/page?utm_source=share"
+        }
+      ],
       "enabled": true,
       "builtIn": true
     },
     {
       "param": "fbid",
+      "examples": [
+        {
+          "input": "https://example.com/page?fbid=abc&utm_source=share",
+          "expectedOutput": "https://example.com/page?utm_source=share"
+        }
+      ],
       "enabled": true,
       "builtIn": true
     },
     {
       "param": "fbclid",
+      "examples": [
+        {
+          "input": "https://example.com/page?fbclid=xyz&utm_source=share",
+          "expectedOutput": "https://example.com/page?utm_source=share"
+        }
+      ],
       "enabled": true,
       "builtIn": true
     },
     {
       "param": "msclkid",
+      "examples": [
+        {
+          "input": "https://example.com/page?msclkid=abc&utm_source=share",
+          "expectedOutput": "https://example.com/page?utm_source=share"
+        }
+      ],
       "enabled": true,
       "builtIn": true
     },
     {
       "param": "gclsrc",
+      "examples": [
+        {
+          "input": "https://example.com/page?gclsrc=aw&utm_source=dl",
+          "expectedOutput": "https://example.com/page?utm_source=dl"
+        }
+      ],
       "enabled": true,
       "builtIn": true
     },
     {
       "param": "gclid",
+      "examples": [
+        {
+          "input": "https://example.com/page?gclid=abc&utm_source=dl",
+          "expectedOutput": "https://example.com/page?utm_source=dl"
+        }
+      ],
       "enabled": true,
       "builtIn": true
     },
     {
       "param": "utm_content",
+      "examples": [
+        {
+          "input": "https://example.com/page?utm_content=abc&utm_source=dl",
+          "expectedOutput": "https://example.com/page?utm_source=dl"
+        }
+      ],
       "enabled": true,
       "builtIn": true
     },
     {
       "param": "utm_term",
+      "examples": [
+        {
+          "input": "https://example.com/page?utm_term=abc&utm_source=dl",
+          "expectedOutput": "https://example.com/page?utm_source=dl"
+        }
+      ],
       "enabled": true,
       "builtIn": true
     },
     {
       "param": "utm_campaign",
+      "examples": [
+        {
+          "input": "https://example.com/page?utm_campaign=abc&utm_source=dl",
+          "expectedOutput": "https://example.com/page?utm_source=dl"
+        }
+      ],
       "enabled": true,
       "builtIn": true
     },
     {
       "param": "utm_medium",
+      "examples": [
+        {
+          "input": "https://example.com/page?utm_medium=abc&utm_source=dl",
+          "expectedOutput": "https://example.com/page?utm_source=dl"
+        }
+      ],
       "enabled": true,
       "builtIn": true
     },
     {
       "param": "utm_source",
+      "examples": [
+        {
+          "input": "https://example.com/page?utm_source=dl&utm_campaign=x",
+          "expectedOutput": "https://example.com/page?utm_campaign=x"
+        }
+      ],
       "enabled": true,
       "builtIn": true
     },
     {
       "param": "stkn",
       "host": "instagram.com",
+      "examples": [
+        {
+          "input": "https://www.instagram.com/explore/tags/web/?stkn=992",
+          "expectedOutput": "https://www.instagram.com/explore/tags/web/"
+        }
+      ],
       "enabled": true,
       "builtIn": true
     }
@@ -266,6 +386,12 @@
       "matchType": "EXACT_HOST",
       "kind": "PATH_PREFIX_REWRITE",
       "targetHost": "archive.md",
+      "examples": [
+        {
+          "input": "https://nytimes.com/2024/04/01/tech/foo.html",
+          "expectedOutput": "https://archive.md/nytimes.com/2024/04/01/tech/foo.html"
+        }
+      ],
       "preserveHostInPath": true,
       "enabled": false,
       "isBuiltIn": true
@@ -275,6 +401,12 @@
       "matchType": "EXACT_HOST",
       "kind": "PATH_PREFIX_REWRITE",
       "targetHost": "web.archive.org/web/*/",
+      "examples": [
+        {
+          "input": "http://geocities.com/SiliconValley/1234/index.html",
+          "expectedOutput": "http://web.archive.org/web/*/geocities.com/SiliconValley/1234/index.html"
+        }
+      ],
       "preserveHostInPath": true,
       "enabled": false,
       "isBuiltIn": true
@@ -284,6 +416,12 @@
       "matchType": "EXACT_WWW_HOST",
       "kind": "HOST_SWAP",
       "targetHost": "www.seetiktok.com",
+      "examples": [
+        {
+          "input": "https://www.tiktok.com/@user/video/7123",
+          "expectedOutput": "https://www.seetiktok.com/@user/video/7123"
+        }
+      ],
       "preserveHostInPath": false,
       "enabled": false,
       "isBuiltIn": true
@@ -293,6 +431,12 @@
       "matchType": "EXACT_HOST",
       "kind": "HOST_SWAP",
       "targetHost": "xcancel.com",
+      "examples": [
+        {
+          "input": "https://twitter.com/enigma/status/1234",
+          "expectedOutput": "https://xcancel.com/enigma/status/1234"
+        }
+      ],
       "preserveHostInPath": false,
       "enabled": false,
       "isBuiltIn": true
@@ -302,6 +446,12 @@
       "matchType": "EXACT_HOST",
       "kind": "HOST_SWAP",
       "targetHost": "xcancel.com",
+      "examples": [
+        {
+          "input": "https://x.com/enigma/status/1234",
+          "expectedOutput": "https://xcancel.com/enigma/status/1234"
+        }
+      ],
       "preserveHostInPath": false,
       "enabled": false,
       "isBuiltIn": true

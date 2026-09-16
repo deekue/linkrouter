@@ -249,6 +249,52 @@ val generateBuiltIns = tasks.register("generateBuiltIns") {
         sb.appendLine(")")
         sb.appendLine()
 
+        // --- builtInParamFilterExamples: param -> example input/expectedOutput pairs ---
+        sb.appendLine("val builtInParamFilterExamples: Map<String, List<RuleExample>> = mapOf(")
+        for (i in 0 until qpf.length()) {
+            val o = qpf.getJSONObject(i)
+            sb.appendLine("    \"${o.getString("param")}\" to ")
+            val ex = if (o.has("examples")) o.getJSONArray("examples") else org.json.JSONArray()
+            if (ex.length() == 0) {
+                sb.appendLine("        emptyList(),")
+            } else {
+                sb.appendLine("        listOf(")
+                for (j in 0 until ex.length()) {
+                    val e = ex.getJSONObject(j)
+                    sb.appendLine("            RuleExample(")
+                    sb.appendLine("                input = \"${e.getString("input")}\",")
+                    sb.appendLine("                expectedOutput = \"${e.getString("expectedOutput")}\",")
+                    sb.appendLine("            ),")
+                }
+                sb.appendLine("        ),")
+            }
+        }
+        sb.appendLine(")")
+        sb.appendLine()
+
+        // --- builtInHostRewriteExamples: matchHost -> example input/expectedOutput pairs ---
+        sb.appendLine("val builtInHostRewriteExamples: Map<String, List<RuleExample>> = mapOf(")
+        for (i in 0 until hr.length()) {
+            val o = hr.getJSONObject(i)
+            sb.appendLine("    \"${o.getString("matchHost")}\" to ")
+            val ex = if (o.has("examples")) o.getJSONArray("examples") else org.json.JSONArray()
+            if (ex.length() == 0) {
+                sb.appendLine("        emptyList(),")
+            } else {
+                sb.appendLine("        listOf(")
+                for (j in 0 until ex.length()) {
+                    val e = ex.getJSONObject(j)
+                    sb.appendLine("            RuleExample(")
+                    sb.appendLine("                input = \"${e.getString("input")}\",")
+                    sb.appendLine("                expectedOutput = \"${e.getString("expectedOutput")}\",")
+                    sb.appendLine("            ),")
+                }
+                sb.appendLine("        ),")
+            }
+        }
+        sb.appendLine(")")
+        sb.appendLine()
+
         val out = outFile.get().asFile
         out.parentFile.mkdirs()
         out.writeText(sb.toString())
