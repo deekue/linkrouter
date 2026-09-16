@@ -17,11 +17,13 @@ on:
     paths:
       - 'app/**'
       - 'gradle/**'
+      - '.github/workflows/codeql.yml'
   pull_request:
     branches: [ "main" ]
     paths:
       - 'app/**'
       - 'gradle/**'
+      - '.github/workflows/codeql.yml'
   schedule:
     - cron: '15 12 * * 6'
 
