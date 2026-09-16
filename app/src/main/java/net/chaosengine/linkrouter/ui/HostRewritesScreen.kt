@@ -61,6 +61,7 @@ import net.chaosengine.linkrouter.rules.HostRewriteValidator
 import net.chaosengine.linkrouter.rules.RuleEngine
 import net.chaosengine.linkrouter.rules.RewriteKind
 import net.chaosengine.linkrouter.rules.RewriteMatchType
+import net.chaosengine.linkrouter.rules.builtInHostRewriteExamples
 
 /**
  * Host-rewrite manager. Lists rewrite rules (match host, kind, target host,
@@ -310,6 +311,7 @@ fun HostRewriteDialog(
                     .verticalScroll(rememberScrollState())
                     .fillMaxWidth(),
             ) {
+                BuiltInRuleExamples(existing?.matchHost, builtInHostRewriteExamples)
                 Text(context.getString(R.string.host_rewrite_match_host), style = MaterialTheme.typography.labelLarge)
                 OutlinedTextField(
                     value = matchHost,
