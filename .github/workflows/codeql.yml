@@ -17,13 +17,11 @@ on:
     paths:
       - 'app/**'
       - 'gradle/**'
-      - '.github/workflows/codeql.yml'
   pull_request:
     branches: [ "main" ]
     paths:
       - 'app/**'
       - 'gradle/**'
-      - '.github/workflows/codeql.yml'
   schedule:
     - cron: '15 12 * * 6'
 
@@ -54,7 +52,7 @@ jobs:
         - language: actions
           build-mode: none
         - language: java-kotlin
-          build-mode: autobuild
+          build-mode: manual
         # CodeQL supports the following values keywords for 'language': 'actions', 'c-cpp', 'csharp', 'go', 'java-kotlin', 'javascript-typescript', 'python', 'ruby', 'rust', 'swift'
         # Use `c-cpp` to analyze code written in C, C++ or both
         # Use 'java-kotlin' to analyze code written in Java, Kotlin or both
@@ -92,16 +90,56 @@ jobs:
     # to build your code.
     # ℹ️ Command-line programs to run using the OS shell.
     # 📚 See https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsrun
+    # Build steps reused from ci.yml so CodeQL can extract compiled Kotlin.
+    # Only run for legs with a manual build (java-kotlin); the actions leg skips them.
+    - name: Load shared env vars
+      if: matrix.build-mode == 'manual'
+      shell: bash
+      run: cat config.env >> "$GITHUB_ENV"
+
+    - name: Set up JDK
+      if: matrix.build-mode == 'manual'
+      uses: actions/setup-java@v6
+      with:
+        distribution: temurin
+        java-version: ${{ env.JAVA_VERSION }}
+
+    - name: Set up Android SDK
+      if: matrix.build-mode == 'manual'
+      uses: premex-ab/setup-android-cli@v1
+      with:
+        packages: |
+          platforms/android-${{ env.ANDROID_API_VER }}
+          build-tools/${{ env.ANDROID_BUILD_TOOLS }}
+          platform-tools
+
+    - name: Set up Gradle
+      if: matrix.build-mode == 'manual'
+      uses: gradle/actions/setup-gradle@v6
+
+    # Cache the Gradle configuration cache AND the build cache. Path/key/restore-keys
+    # mirror ci.yml's "Cache Gradle configuration + build cache" step so the CodeQL
+    # build hits the same cache entries. Placed (as in ci.yml) after Gradle setup and
+    # before the build.
+    # org.gradle.caching=true (in gradle.properties) turns on the build cache;
+    # ~/.gradle/caches/build-cache-1 is what reuses compiled task outputs across runs.
+    - name: Cache Gradle
+      if: matrix.build-mode == 'manual'
+      uses: actions/cache@v6
+      with:
+        path: |
+          .gradle/configuration-cache
+          ~/.gradle/caches/build-cache-1
+        # NOTE: add gradle/libs.versions.toml and init.gradle to hashFiles if/when introduced
+        key: cc-${{ runner.os }}-${{ hashFiles('**/*.gradle.kts', '**/gradle.properties') }}
+        restore-keys: cc-${{ runner.os }}-
+
     - name: Run manual build steps
       if: matrix.build-mode == 'manual'
       shell: bash
-      run: |
-        echo 'If you are using a "manual" build mode for one or more of the' \
-          'languages you are analyzing, replace this with the commands to build' \
-          'your code, for example:'
-        echo '  make bootstrap'
-        echo '  make release'
-        exit 1
+      # Compile-only tasks (no assemble/sign/package/test) so CodeQL captures the
+      # Kotlin+Java bytecode with the least build work.
+      run: ./gradlew :app:compileDebugKotlin :app:compileDebugJavaWithJavac --no-daemon
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v4
