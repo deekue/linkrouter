@@ -100,13 +100,26 @@ class DispatcherActivity : Activity() {
     @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        // M7 (D9): the ephemeral resolution WebView reports back here. Forward to
-        // the web resolver so a pending ActivityWebResolver.resolve() can resume.
-        // No-op when no resolution is in flight (fakes deliver synchronously).
-        AppContainer.shortenerWebResolver.deliverResult(resultCode, data)
+        // M7 (D9): the ephemeral resolution WebView now hands its result back
+        // DIRECTLY IN-PROCESS (ResolutionWebViewActivity ->
+        // AppContainer.shortenerWebResolver.deliverResult), NOT through this
+        // onActivityResult channel. Resolution no longer uses
+        // startActivityForResult, so nothing should ever route a resolution
+        // result through here. IF it fires, it is a stray result belonging to
+        // some OTHER startActivityForResult round-trip in this activity — the
+        // shared-codeC/requestCode race this fix removes. We therefore do NOT
+        // deliver here (that is exactly the clobber/lost-handback path); we only
+        // log. The token-keyed resolver would have dropped it anyway (no live
+        // sink / unknown token), but never relying on the channel is safer.
+        ShortenResolveLog.w(
+            "onActivityResult fired (requestCode=$requestCode resultCode=$resultCode " +
+                "hasData=${data != null}) — NOT delivered through this channel " +
+                "(resolution uses the in-process callback); stray result ignored"
+        )
     }
 
     private fun dispatch(original: Uri, parsed: RuleEngine.ParsedUrl) {
+        ShortenResolveLog.i("dispatch entry original=${original}")
         dispatchScope.launch {
             // 2. MATCH against enabled rules (in priority order), using the
             // user-managed redirect formats to resolve the wrapper to its
@@ -137,6 +150,7 @@ class DispatcherActivity : Activity() {
 
             // 2a — INCOMING shortener (identical behavior to before, now via the
             // shared helper so the nested path below has identical semantics).
+            ShortenResolveLog.i("dispatch: resolving INCOMING shortener url=$matchCandidate")
             val incoming = resolveShortener(matchCandidate, shortenerHosts)
             if (incoming != null) { finalUrl = incoming; matchCandidate = incoming }
 
@@ -153,6 +167,7 @@ class DispatcherActivity : Activity() {
                     ?: RuleEngine.unwrapRedirect(matchCandidate)
                 if (unwrapped != null && unwrapped != matchCandidate) {
                     matchCandidate = unwrapped
+                    ShortenResolveLog.i("dispatch: resolving DESTINATION (nested) shortener url=$matchCandidate (unwrapped from=$unwrapped)")
                     val inner = resolveShortener(matchCandidate, shortenerHosts)
                     if (inner != null) finalUrl = inner
                 }
@@ -275,11 +290,13 @@ class DispatcherActivity : Activity() {
                     if (BuildConfig.DEBUG) {
                         Log.i(TAG, "Shortener resolved (WebView) $url -> $web (hops=${result.hops})")
                     }
+                    ShortenResolveLog.i("resolveShortener interstitial escalated to WebView and settled: $url -> $web")
                     web
                 } else {
                     if (BuildConfig.DEBUG) {
                         Log.w(TAG, "Shortener WebView settle failed/timed out for $url")
                     }
+                    ShortenResolveLog.e("resolveShortener timeout url=$url: WebView escalation returned null -> timeout toast (hops=${result.hops})")
                     // Runs on the main thread (dispatchScope = Main); toast directly.
                     toast(getString(R.string.shortener_resolve_timeout))
                     null
@@ -292,6 +309,7 @@ class DispatcherActivity : Activity() {
                 if (BuildConfig.DEBUG) {
                     Log.w(TAG, "Shortener resolve failed for $url: ${result.message}")
                 }
+                ShortenResolveLog.w("resolveShortener FAILED url=$url: Error (${result.message}) hops=${result.hops} -> failure toast")
                 toast(getString(R.string.shortener_resolve_failed, result.message))
                 null
             }
@@ -299,6 +317,7 @@ class DispatcherActivity : Activity() {
                 if (BuildConfig.DEBUG) {
                     Log.w(TAG, "Shortener resolve failed for $url: redirect loop")
                 }
+                ShortenResolveLog.w("resolveShortener FAILED url=$url: Loop (redirect loop) hops=${result.hops} -> failure toast")
                 toast(getString(R.string.shortener_resolve_failed, "redirect loop"))
                 null
             }
@@ -306,6 +325,7 @@ class DispatcherActivity : Activity() {
                 if (BuildConfig.DEBUG) {
                     Log.w(TAG, "Shortener resolve failed for $url: too many redirects")
                 }
+                ShortenResolveLog.w("resolveShortener FAILED url=$url: MaxHops (too many redirects) hops=${result.hops} -> failure toast")
                 toast(getString(R.string.shortener_resolve_failed, "too many redirects"))
                 null
             }
@@ -313,6 +333,7 @@ class DispatcherActivity : Activity() {
                 if (BuildConfig.DEBUG) {
                     Log.w(TAG, "Shortener resolve failed for $url: non-http(s) target ${result.url}")
                 }
+                ShortenResolveLog.w("resolveShortener FAILED url=$url: Rejected (non-http(s) target ${result.url}) hops=${result.hops} -> failure toast")
                 toast(getString(R.string.shortener_resolve_failed, "non-http(s) target: ${result.url}"))
                 null
             }

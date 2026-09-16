@@ -6,8 +6,12 @@ import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.webkit.CookieManager
+import android.webkit.SslErrorHandler
+import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 
@@ -31,6 +35,16 @@ import android.webkit.WebViewClient
  * [SettleDetector.settledUrl] after the grace window (a page is "settled" once
  * it finished loading and stayed put for the grace period).
  *
+ * **Result handback is a DIRECT IN-PROCESS call** to the resolver
+ * ([deliverInProcess] → [AppContainer.shortenerWebResolver].deliverResult),
+ * carrying [RESULT_URL] (success) or no URL (timeout) plus the echoed
+ * [EXTRA_TOKEN]. It is NOT done via `startActivityForResult`/`onActivityResult`,
+ * because every resolution instance shared ONE `requestCode` and a concurrent
+ * resolution could clobber the first's result slot, losing a genuine success
+ * (the device-confirmed false timeout). The activity still `finish()`es
+ * afterwards; the owner [DispatcherActivity] finishes itself when its
+ * `resolve()` resumes.
+ *
  * Ephemeral privacy: on close (success or failure) [onDestroy] clears cookies,
  * HTTP cache and web storage and destroys the WebView, so the interstitial's
  * session cannot leak into a later real browsing session.
@@ -40,6 +54,15 @@ class ResolutionWebViewActivity : Activity() {
     companion object {
         const val EXTRA_URL = "net.chaosengine.linkrouter.resolution.EXTRA_URL"
         const val RESULT_URL = "net.chaosengine.linkrouter.resolution.RESULT_URL"
+
+        /**
+         * Ownership token issued by [net.chaosengine.linkrouter.rules.ActivityWebResolver]
+         * and echoed back into the in-process [deliverInProcess] call (both
+         * success and timeout), so the resolver can match a delivered result to
+         * the in-flight resolution and drop stale/foreign ones (stale-result
+         * guard).
+         */
+        const val EXTRA_TOKEN = "net.chaosengine.linkrouter.resolution.EXTRA_TOKEN"
 
         /** Overall settle timeout: if the page has not settled by then, give up. */
         const val DEFAULT_TIMEOUT_MS = 8_000L
@@ -56,15 +79,63 @@ class ResolutionWebViewActivity : Activity() {
     private var timeoutRunnable: Runnable? = null
     private var finished = false
 
+    // Ownership token echoed back into the result so the resolver can match it
+    // to the in-flight resolution and drop stale/foreign results (stale-result
+    // guard). Null when the token extra is absent (legacy callers / tests).
+    private var token: String? = null
+
+    /**
+     * Direct in-process result handback to the owning [net.chaosengine.linkrouter.rules.ActivityWebResolver].
+     *
+     * Why not `startActivityForResult`/`onActivityResult`: the dispatcher and
+     * every resolution activity shared ONE `requestCode` (0x4C52), so a second
+     * concurrent resolution clobbered the first's result slot — a genuine
+     * `RESULT_OK` could be lost in the handback and the live sink orphaned
+     * (device-confirmed false timeout). Both classes live in this process, so
+     * the activity calls the resolver directly, keyed by the echoed
+     * [EXTRA_TOKEN], with no shared channel. The activity is still
+     * `finish()`-ed afterwards (the owner dispatcher finishes itself on
+     * resume of `resolve()`).
+     */
+    private fun deliverInProcess(code: Int, finalUrl: String?) {
+        try {
+            val data = Intent()
+            token?.let { data.putExtra(EXTRA_TOKEN, it) }
+            if (code == RESULT_OK && finalUrl != null) {
+                data.putExtra(RESULT_URL, finalUrl)
+            }
+            AppContainer.shortenerWebResolver.deliverResult(code, data)
+        } catch (e: Throwable) {
+            // Best-effort: the resolver's [withTimeout] safety net will still
+            // resume `resolve()` with null, so a failed handback degrades
+            // (D6) rather than crashes.
+            ShortenResolveLog.e("deliverInProcess code=$code finalUrl=$finalUrl threw ${e} — relying on the resolver's withTimeout safety net")
+        }
+    }
+
+    // Diagnostic-only state (ShortenResolve tag): activity start time and the
+    // last page that reached onPageFinished. Used solely for log lines.
+    private var startEpochMs: Long = 0L
+    private var anyPageFinished = false
+
+    private fun elapsedMs(): Long = if (startEpochMs == 0L) -1L else SystemClock.elapsedRealtime() - startEpochMs
+
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         val url = intent?.getStringExtra(EXTRA_URL)
         if (url == null) {
+            ShortenResolveLog.w("resolution WebView onCreate: no URL extra -> finish() immediately")
             finish()
             return
         }
+        token = intent?.getStringExtra(EXTRA_TOKEN)
+        startEpochMs = SystemClock.elapsedRealtime()
+        ShortenResolveLog.i(
+            "resolution WebView onCreate: url=$url timeoutMs=$DEFAULT_TIMEOUT_MS graceMs=$GRACE_MS " +
+            "settleCheckDelayMs=$SETTLE_CHECK_DELAY_MS"
+        )
 
         val settleDetector = SettleDetector(graceMillis = GRACE_MS)
         detector = settleDetector
@@ -91,17 +162,57 @@ class ResolutionWebViewActivity : Activity() {
                 }
 
                 override fun onPageStarted(view: WebView, url: String, favicon: android.graphics.Bitmap?) {
+                    ShortenResolveLog.i("onPageStarted url=$url (elapsed=${elapsedMs()}ms)")
                     settleDetector.onPageStarted(url)
                     // A new navigation began → cancel any pending settle re-check.
                     mainHandler.removeCallbacks(grace)
                 }
 
                 override fun onPageFinished(view: WebView, url: String) {
+                    anyPageFinished = true
+                    ShortenResolveLog.i("onPageFinished url=$url (elapsed=${elapsedMs()}ms)")
                     settleDetector.onPageFinished(url)
                     // Re-evaluate settle after the grace window: if the page stayed
                     // put (no new navigation), it is the final destination.
                     mainHandler.removeCallbacks(grace)
                     mainHandler.postDelayed(grace, SETTLE_CHECK_DELAY_MS)
+                }
+
+                // Diagnostic-only overrides: log resource/network failures to help
+                // diagnose a resolution timeout (e.g. cleartext/SSL). NO
+                // handler.cancel()/proceed() calls, so the WebView's existing
+                // error handling / behavior is unchanged.
+                override fun onReceivedError(
+                    view: WebView,
+                    request: WebResourceRequest,
+                    error: WebResourceError,
+                ) {
+                    ShortenResolveLog.e(
+                        "onReceivedError url=${request.url} " +
+                        "(isForMainFrame=${request.isForMainFrame}) description=${error.description} " +
+                        "elapsed=${elapsedMs()}ms"
+                    )
+                }
+
+                override fun onReceivedSslError(
+                    view: WebView,
+                    handler: SslErrorHandler,
+                    error: android.net.http.SslError,
+                ) {
+                    ShortenResolveLog.e(
+                        "onReceivedSslError url=${error.url} error=${error.toString()} (NOT cancelling) elapsed=${elapsedMs()}ms"
+                    )
+                }
+
+                override fun onReceivedHttpError(
+                    view: WebView,
+                    request: WebResourceRequest,
+                    errorResponse: WebResourceResponse,
+                ) {
+                    ShortenResolveLog.w(
+                        "onReceivedHttpError url=${request.url} httpStatus=${errorResponse.statusCode} " +
+                        "isForMainFrame=${request.isForMainFrame} elapsed=${elapsedMs()}ms"
+                    )
                 }
             }
             loadUrl(url)
@@ -113,7 +224,12 @@ class ResolutionWebViewActivity : Activity() {
         val runTimeout = Runnable {
             if (!finished) {
                 finished = true
-                setResult(RESULT_CANCELED)
+                ShortenResolveLog.w(
+                    "TIMEOUT fired: giving up after ${elapsedMs()}ms (expected=${DEFAULT_TIMEOUT_MS}ms) " +
+                    "lastSettledCandidate=${detector?.settledUrl ?: "<none>"} anyPageFinished=$anyPageFinished " +
+                    "-> RESULT_CANCELED (in-process delivery)"
+                )
+                deliverInProcess(RESULT_CANCELED, null)
                 finish()
             }
         }
@@ -126,8 +242,11 @@ class ResolutionWebViewActivity : Activity() {
         val finalUrl = detector?.settledUrl
         if (finalUrl != null) {
             finished = true
-            setResult(RESULT_OK, Intent().putExtra(RESULT_URL, finalUrl))
+            ShortenResolveLog.i("settle CHECK: SETTLED candidate=$finalUrl elapsed=${elapsedMs()}ms -> RESULT_OK (in-process delivery) + finish()")
+            deliverInProcess(RESULT_OK, finalUrl)
             finish()
+        } else {
+            ShortenResolveLog.i("settle CHECK: not settled yet elapsed=${elapsedMs()}ms (waiting for grace window)")
         }
     }
 

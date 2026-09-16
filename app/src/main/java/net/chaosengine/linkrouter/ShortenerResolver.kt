@@ -54,19 +54,27 @@ object ShortenerResolver {
         var current = startUrl
         var hops = 0
         val seen = HashSet<String>()
+        ShortenResolveLog.i("fast-path resolve start url=$startUrl (maxHops=$maxHops)")
         while (true) {
-            if (current in seen) return Result.Loop(current, hops)
+            if (current in seen) {
+                ShortenResolveLog.w("fast-path resolve url=$current -> Loop after ${hops} hop(s) (URL already visited)")
+                return Result.Loop(current, hops)
+            }
             seen.add(current)
 
             val resp = try {
                 fetcher.fetch(current)
             } catch (e: Exception) {
+                ShortenResolveLog.e("fast-path fetch threw after ${hops} hop(s) url=$current: ${e.javaClass.simpleName}: ${e.message}")
                 return Result.Error(current, hops, e.message ?: e.javaClass.name)
             }
+
+            ShortenResolveLog.i("fast-path hop#$hops url=$current http=${resp.status} location=${resp.location ?: "<none>"}")
 
             // A 3xx without a Location header is not a usable redirect: bailing
             // out to body inspection would misclassify it as Resolved.
             if (resp.status in 300..399 && resp.location == null) {
+                ShortenResolveLog.w("fast-path resolve url=$current -> Error after ${hops} hop(s): HTTP ${resp.status} without Location header")
                 return Result.Error(current, hops, "HTTP ${resp.status} without Location header")
             }
 
@@ -74,10 +82,14 @@ object ShortenerResolver {
                 val next = resolveRelative(current, resp.location)
                 val scheme = schemeOf(next)
                 if (scheme != "http" && scheme != "https") {
+                    ShortenResolveLog.w("fast-path resolve url=$current -> Rejected after ${hops} hop(s): non-http(s) target '$next' (scheme=$scheme)")
                     return Result.Rejected(next, hops)
                 }
                 hops++
-                if (hops > maxHops) return Result.MaxHops(next, hops)
+                if (hops > maxHops) {
+                    ShortenResolveLog.w("fast-path resolve url=$current -> MaxHops after ${hops} hop(s): exceeded $maxHops (target='$next')")
+                    return Result.MaxHops(next, hops)
+                }
                 current = next
                 continue
             }
@@ -88,8 +100,14 @@ object ShortenerResolver {
             val meta = lb.contains("http-equiv") && lb.contains("refresh")
             val js = lb.contains("location.replace") || lb.contains("location.href")
             if (meta || js) {
+                ShortenResolveLog.i(
+                    "fast-path resolve url=$current -> Interstitial after ${hops} hop(s) " +
+                    "(metaRefresh=${lb.contains("http-equiv") && lb.contains("refresh")} " +
+                    "jsReplace=${lb.contains("location.replace")} jsHref=${lb.contains("location.href")})"
+                )
                 return Result.Interstitial(current, hops)
             }
+            ShortenResolveLog.i("fast-path resolve url=$current -> Resolved after ${hops} hop(s)")
             return Result.Resolved(current, hops)
         }
     }
@@ -134,6 +152,9 @@ object ShortenerResolver {
                 LOG.log(Level.FINE, "Shortener fetch: url=$url status=$status location=$location")
                 val body = readBody(conn)
                 HopResponse(status, location, body)
+            } catch (e: Exception) {
+                ShortenResolveLog.e("fast-path RealFetcher.fetch url=$url: ${e.javaClass.name}: ${e.message}")
+                throw e
             } finally {
                 conn.disconnect()
             }
