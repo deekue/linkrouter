@@ -31,6 +31,44 @@ class BuiltInExamplesTest {
     }
 
     @Test
+    fun builtInParamFilterExamples_areCorrect() {
+        val byParam = builtInQueryParamFilters.associateBy { it.param }
+        for ((param, examples) in builtInParamFilterExamples) {
+            if (examples.isEmpty()) continue
+            val found = byParam[param]
+                ?: throw AssertionError("param filter '$param' declares examples but has no built-in rule with that param")
+            val filter = found.copy(enabled = true)
+            for (ex in examples) {
+                val actual = QueryParamStripper.strip(ex.input, listOf(filter))
+                assertEquals(
+                    "param=$param input=${ex.input}",
+                    ex.expectedOutput,
+                    actual,
+                )
+            }
+        }
+    }
+
+    @Test
+    fun builtInHostRewriteExamples_areCorrect() {
+        val byHost = builtInHostRewrites.associateBy { it.matchHost }
+        for ((matchHost, examples) in builtInHostRewriteExamples) {
+            if (examples.isEmpty()) continue
+            val found = byHost[matchHost]
+                ?: throw AssertionError("host rewrite '$matchHost' declares examples but has no built-in rule with that matchHost")
+            val rule = found.copy(enabled = true)
+            for (ex in examples) {
+                val actual = HostRewriter.rewrite(ex.input, listOf(rule))
+                assertEquals(
+                    "host=$matchHost input=${ex.input}",
+                    ex.expectedOutput,
+                    actual,
+                )
+            }
+        }
+    }
+
+    @Test
     fun at_least_one_example_is_declared() {
         // Guard against the JSON "examples" field being silently dropped from the seed.
         assertTrue(
