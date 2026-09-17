@@ -98,7 +98,7 @@
         }
       ],
       "enabled": true,
-      "builtIn": true
+      "isBuiltIn": true
     },
     {
       "param": "feature",
@@ -110,7 +110,7 @@
         }
       ],
       "enabled": true,
-      "builtIn": true
+      "isBuiltIn": true
     },
     {
       "param": "si",
@@ -122,7 +122,7 @@
         }
       ],
       "enabled": true,
-      "builtIn": true
+      "isBuiltIn": true
     },
     {
       "param": "igshid",
@@ -134,7 +134,7 @@
         }
       ],
       "enabled": true,
-      "builtIn": true
+      "isBuiltIn": true
     },
     {
       "param": "igsi",
@@ -146,7 +146,7 @@
         }
       ],
       "enabled": true,
-      "builtIn": true
+      "isBuiltIn": true
     },
     {
       "param": "_t",
@@ -158,7 +158,7 @@
         }
       ],
       "enabled": true,
-      "builtIn": true
+      "isBuiltIn": true
     },
     {
       "param": "mc_cid",
@@ -169,7 +169,7 @@
         }
       ],
       "enabled": true,
-      "builtIn": true
+      "isBuiltIn": true
     },
     {
       "param": "mc_eid",
@@ -180,7 +180,7 @@
         }
       ],
       "enabled": true,
-      "builtIn": true
+      "isBuiltIn": true
     },
     {
       "param": "sharer_id",
@@ -191,7 +191,7 @@
         }
       ],
       "enabled": true,
-      "builtIn": true
+      "isBuiltIn": true
     },
     {
       "param": "fbid",
@@ -202,7 +202,7 @@
         }
       ],
       "enabled": true,
-      "builtIn": true
+      "isBuiltIn": true
     },
     {
       "param": "fbclid",
@@ -213,7 +213,7 @@
         }
       ],
       "enabled": true,
-      "builtIn": true
+      "isBuiltIn": true
     },
     {
       "param": "msclkid",
@@ -224,7 +224,7 @@
         }
       ],
       "enabled": true,
-      "builtIn": true
+      "isBuiltIn": true
     },
     {
       "param": "gclsrc",
@@ -235,7 +235,7 @@
         }
       ],
       "enabled": true,
-      "builtIn": true
+      "isBuiltIn": true
     },
     {
       "param": "gclid",
@@ -246,7 +246,7 @@
         }
       ],
       "enabled": true,
-      "builtIn": true
+      "isBuiltIn": true
     },
     {
       "param": "utm_content",
@@ -257,7 +257,7 @@
         }
       ],
       "enabled": true,
-      "builtIn": true
+      "isBuiltIn": true
     },
     {
       "param": "utm_term",
@@ -268,7 +268,7 @@
         }
       ],
       "enabled": true,
-      "builtIn": true
+      "isBuiltIn": true
     },
     {
       "param": "utm_campaign",
@@ -279,7 +279,7 @@
         }
       ],
       "enabled": true,
-      "builtIn": true
+      "isBuiltIn": true
     },
     {
       "param": "utm_medium",
@@ -290,7 +290,7 @@
         }
       ],
       "enabled": true,
-      "builtIn": true
+      "isBuiltIn": true
     },
     {
       "param": "utm_source",
@@ -301,7 +301,7 @@
         }
       ],
       "enabled": true,
-      "builtIn": true
+      "isBuiltIn": true
     },
     {
       "param": "stkn",
@@ -313,7 +313,7 @@
         }
       ],
       "enabled": true,
-      "builtIn": true
+      "isBuiltIn": true
     }
   ],
   "shortenerHosts": [
@@ -322,62 +322,62 @@
       "host": "www.facebook.com",
       "pathPrefix": "/share/r/",
       "enabled": false,
-      "builtIn": true
+      "isBuiltIn": true
     },
     {
       "name": "TikTok short links",
       "host": "www.tiktok.com",
       "pathPrefix": "/t/",
       "enabled": false,
-      "builtIn": true
+      "isBuiltIn": true
     },
     {
       "name": "buff.ly",
       "host": "buff.ly",
       "enabled": false,
-      "builtIn": true
+      "isBuiltIn": true
     },
     {
       "name": "ow.ly",
       "host": "ow.ly",
       "enabled": false,
-      "builtIn": true
+      "isBuiltIn": true
     },
     {
       "name": "tinyurl.com",
       "host": "tinyurl.com",
       "enabled": false,
-      "builtIn": true
+      "isBuiltIn": true
     },
     {
       "name": "is.gd",
       "host": "is.gd",
       "enabled": false,
-      "builtIn": true
+      "isBuiltIn": true
     },
     {
       "name": "bit.ly",
       "host": "bit.ly",
       "enabled": false,
-      "builtIn": true
+      "isBuiltIn": true
     },
     {
       "name": "t.co",
       "host": "t.co",
       "enabled": false,
-      "builtIn": true
+      "isBuiltIn": true
     },
     {
       "name": "Facebook Me",
       "host": "fb.me",
       "enabled": false,
-      "builtIn": true
+      "isBuiltIn": true
     },
     {
       "name": "Google",
       "host": "share.google",
       "enabled": false,
-      "builtIn": true
+      "isBuiltIn": true
     }
   ],
   "hostRewrites": [

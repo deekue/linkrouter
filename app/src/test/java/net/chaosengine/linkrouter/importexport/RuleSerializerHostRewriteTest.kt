@@ -23,7 +23,7 @@ class RuleSerializerHostRewriteTest {
         targetHost: String = "archive.org",
         preserveHostInPath: Boolean = false,
         enabled: Boolean = true,
-        builtIn: Boolean = false,
+        isBuiltIn: Boolean = false,
     ) = HostRewrite(
         id = 0,
         matchHost = matchHost,
@@ -33,14 +33,14 @@ class RuleSerializerHostRewriteTest {
         preserveHostInPath = preserveHostInPath,
         enabled = enabled,
         priority = 0,
-        isBuiltIn = builtIn,
+        isBuiltIn = isBuiltIn,
     )
 
     @Test
     fun roundTrip_allFieldsAndOrder_preserved() {
         val hostSwap = rewrite("nytimes.com", RewriteMatchType.EXACT_WWW_HOST, RewriteKind.HOST_SWAP, "archive.org")
         val pathPrefix = rewrite("nytimes.com", RewriteMatchType.SUBDOMAIN, RewriteKind.PATH_PREFIX_REWRITE, "archive.md", preserveHostInPath = true)
-        val disabledBuiltIn = rewrite("dead.example", RewriteMatchType.EXACT_HOST, RewriteKind.HOST_SWAP, "gone.org", enabled = false, builtIn = true)
+        val disabledBuiltIn = rewrite("dead.example", RewriteMatchType.EXACT_HOST, RewriteKind.HOST_SWAP, "gone.org", enabled = false, isBuiltIn = true)
 
         val json = RuleSerializer.toJson(emptyList(), emptyList(), emptyList(), emptyList(), listOf(hostSwap, pathPrefix, disabledBuiltIn))
         val parsed = RuleSerializer.fromHostRewriteJson(json)
@@ -73,8 +73,8 @@ class RuleSerializerHostRewriteTest {
 
     @Test
     fun roundTrip_builtinFlagSurvives() {
-        val builtIn = rewrite("b.com", builtIn = true)
-        val json = RuleSerializer.toJson(emptyList(), emptyList(), emptyList(), emptyList(), listOf(builtIn))
+        val isBuiltIn = rewrite("b.com", isBuiltIn = true)
+        val json = RuleSerializer.toJson(emptyList(), emptyList(), emptyList(), emptyList(), listOf(isBuiltIn))
         val parsed = RuleSerializer.fromHostRewriteJson(json)
         assertEquals(true, parsed.single().isBuiltIn)
     }

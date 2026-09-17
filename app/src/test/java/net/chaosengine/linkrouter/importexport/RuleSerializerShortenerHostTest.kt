@@ -17,7 +17,7 @@ class RuleSerializerShortenerHostTest {
         host: String,
         pathPrefix: String? = null,
         enabled: Boolean = true,
-        builtIn: Boolean = false,
+        isBuiltIn: Boolean = false,
     ) = ShortenerHost(
         id = 0,
         name = name,
@@ -25,14 +25,14 @@ class RuleSerializerShortenerHostTest {
         pathPrefix = pathPrefix,
         enabled = enabled,
         priority = 0,
-        isBuiltIn = builtIn,
+        isBuiltIn = isBuiltIn,
     )
 
     @Test
     fun roundTrip_hostOnlyAndPathPrefix_preservesAllFields() {
-        val hostOnly = host("t.co", "t.co", pathPrefix = null, enabled = true, builtIn = false)
-        val pathPrefixed = host("tiktok", "www.tiktok.com", pathPrefix = "/t/", enabled = true, builtIn = false)
-        val disabled = host("dead", "example.com", pathPrefix = null, enabled = false, builtIn = false)
+        val hostOnly = host("t.co", "t.co", pathPrefix = null, enabled = true, isBuiltIn = false)
+        val pathPrefixed = host("tiktok", "www.tiktok.com", pathPrefix = "/t/", enabled = true, isBuiltIn = false)
+        val disabled = host("dead", "example.com", pathPrefix = null, enabled = false, isBuiltIn = false)
 
         val json = RuleSerializer.toJson(emptyList(), emptyList(), emptyList(), listOf(hostOnly, pathPrefixed, disabled))
         val parsed = RuleSerializer.fromShortenerHostJson(json)
@@ -54,8 +54,8 @@ class RuleSerializerShortenerHostTest {
 
     @Test
     fun roundTrip_builtinFlagSurvives() {
-        val builtIn = host("bit.ly", "bit.ly", pathPrefix = null, enabled = false, builtIn = true)
-        val json = RuleSerializer.toJson(emptyList(), emptyList(), emptyList(), listOf(builtIn))
+        val isBuiltIn = host("bit.ly", "bit.ly", pathPrefix = null, enabled = false, isBuiltIn = true)
+        val json = RuleSerializer.toJson(emptyList(), emptyList(), emptyList(), listOf(isBuiltIn))
         val parsed = RuleSerializer.fromShortenerHostJson(json)
         assertEquals(true, parsed.single().isBuiltIn)
     }
