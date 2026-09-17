@@ -155,7 +155,7 @@
       "examples": [
         {
           "input": "https://www.tiktok.com/@tonononotonononon1/video/7590307485039283474?_t=88233&utm_source=copy",
-          "expectedOutput": "https://www.tiktok.com/@tonononotonononon1/video/7590307485039283474?utm_source=copy",
+          "expectedOutput": "https://www.tiktok.com/@tonononotonononon1/video/7590307485039283474?utm_source=copy"
         }
       ],
       "enabled": true,
@@ -390,8 +390,7 @@
       "examples": [
         {
           "input": "https://www.nytimes.com/2026/09/16/us/merriam-webster-new-words-looksmaxxing-yacht-rock.html",
-          "expectedOutput": "https://archive.md/www.nytimes.com/2026/09/16/us/merriam-webster-new-words-looksmaxxing-yacht-rock.html",
-
+          "expectedOutput": "https://archive.md/www.nytimes.com/2026/09/16/us/merriam-webster-new-words-looksmaxxing-yacht-rock.html"
         }
       ],
       "preserveHostInPath": true,
@@ -421,7 +420,7 @@
       "examples": [
         {
           "input": "https://www.tiktok.com/@tonononotonononon1/video/7590307485039283474",
-          "expectedOutput": "https://www.seetiktok.com/@tonononotonononon1/video/7590307485039283474",
+          "expectedOutput": "https://www.seetiktok.com/@tonononotonononon1/video/7590307485039283474"
         }
       ],
       "preserveHostInPath": false,
