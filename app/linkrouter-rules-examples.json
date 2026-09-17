@@ -1,6 +1,21 @@
 {
   "version": 1,
-  "rules": [],
+  "rules": [
+    {
+      "pattern": "twitter.com",
+      "matchType": "EXACT_HOST",
+      "targetPackage": "org.mozilla.firefox",
+      "targetActivity": null,
+      "openMode": "NORMAL",
+      "enabled": true,
+      "priority": 100,
+      "isBuiltIn": false,
+      "examples": [
+        { "input": "https://twitter.com/elmo/status/2068016008086872413", "expectedOutput": "org.mozilla.firefox" },
+        { "input": "https://twitter.com/elmo", "expectedOutput": "org.mozilla.firefox" }
+      ]
+    }
+  ],
   "redirectFormats": [
     {
       "name": "Google www",
@@ -71,20 +86,6 @@
       "priority": 2,
       "isBuiltIn": true,
       "openRealDestination": true
-    },
-    {
-      "name": "Reddit (in-site)",
-      "examples": [
-        { "input": "https://www.reddit.com/redirect/abc?url=https%3A%2F%2Fexample.com", "expectedOutput": "https://example.com" }
-      ],
-      "pattern": "reddit.com/redirect/",
-      "matchType": "PATH_PREFIX",
-      "extractType": "QUERY_PARAM",
-      "extractTarget": "url",
-      "enabled": true,
-      "priority": 1,
-      "isBuiltIn": true,
-      "openRealDestination": true
     }
   ],
   "queryParamFilters": [
@@ -93,7 +94,7 @@
       "host": "facebook.com",
       "examples": [
         {
-          "input": "https://www.facebook.com/share/r/xyz/?original_uri=https%3A%2F%2Fenigma.com%2Fp&utm_source=native",
+          "input": "https://www.facebook.com/share/r/xyz/?original_uri=https%3A%2F%2Fexample.com%2Fp&utm_source=native",
           "expectedOutput": "https://www.facebook.com/share/r/xyz/?utm_source=native"
         }
       ],
@@ -105,8 +106,8 @@
       "host": "youtube.com",
       "examples": [
         {
-          "input": "https://www.youtube.com/watch?v=AbCd12&feature=share",
-          "expectedOutput": "https://www.youtube.com/watch?v=AbCd12"
+          "input": "https://www.youtube.com/watch?v=dQw4w9WgXcQ&feature=share",
+          "expectedOutput": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
         }
       ],
       "enabled": true,
@@ -117,8 +118,8 @@
       "host": "youtube.com",
       "examples": [
         {
-          "input": "https://www.youtube.com/watch?v=AbCd12&si=Zz9",
-          "expectedOutput": "https://www.youtube.com/watch?v=AbCd12"
+          "input": "https://www.youtube.com/watch?v=dQw4w9WgXcQ&si=Zz9",
+          "expectedOutput": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
         }
       ],
       "enabled": true,
@@ -129,8 +130,8 @@
       "host": "instagram.com",
       "examples": [
         {
-          "input": "https://www.instagram.com/reel/Cx1/?igshid=1a2b3c&utm_source=ig_web",
-          "expectedOutput": "https://www.instagram.com/reel/Cx1/?utm_source=ig_web"
+          "input": "https://www.instagram.com/reel/BgSlRglAKBn/?igshid=1a2b3c&utm_source=ig_web",
+          "expectedOutput": "https://www.instagram.com/reel/BgSlRglAKBn/?utm_source=ig_web"
         }
       ],
       "enabled": true,
@@ -141,8 +142,8 @@
       "host": "instagram.com",
       "examples": [
         {
-          "input": "https://www.instagram.com/p/abc123/?igsi=77",
-          "expectedOutput": "https://www.instagram.com/p/abc123/"
+          "input": "https://www.instagram.com/p/BgSlRglAKBn/?igsi=77",
+          "expectedOutput": "https://www.instagram.com/p/BgSlRglAKBn/"
         }
       ],
       "enabled": true,
@@ -153,8 +154,8 @@
       "host": "tiktok.com",
       "examples": [
         {
-          "input": "https://www.tiktok.com/@user/video/7123?_t=88233&utm_source=copy",
-          "expectedOutput": "https://www.tiktok.com/@user/video/7123?utm_source=copy"
+          "input": "https://www.tiktok.com/@tonononotonononon1/video/7590307485039283474?_t=88233&utm_source=copy",
+          "expectedOutput": "https://www.tiktok.com/@tonononotonononon1/video/7590307485039283474?utm_source=copy"
         }
       ],
       "enabled": true,
@@ -388,8 +389,8 @@
       "targetHost": "archive.md",
       "examples": [
         {
-          "input": "https://nytimes.com/2024/04/01/tech/foo.html",
-          "expectedOutput": "https://archive.md/nytimes.com/2024/04/01/tech/foo.html"
+          "input": "https://www.nytimes.com/2026/09/16/us/merriam-webster-new-words-looksmaxxing-yacht-rock.html",
+          "expectedOutput": "https://archive.md/www.nytimes.com/2026/09/16/us/merriam-webster-new-words-looksmaxxing-yacht-rock.html"
         }
       ],
       "preserveHostInPath": true,
@@ -418,8 +419,8 @@
       "targetHost": "www.seetiktok.com",
       "examples": [
         {
-          "input": "https://www.tiktok.com/@user/video/7123",
-          "expectedOutput": "https://www.seetiktok.com/@user/video/7123"
+          "input": "https://www.tiktok.com/@tonononotonononon1/video/7590307485039283474",
+          "expectedOutput": "https://www.seetiktok.com/@tonononotonononon1/video/7590307485039283474"
         }
       ],
       "preserveHostInPath": false,
@@ -433,8 +434,8 @@
       "targetHost": "xcancel.com",
       "examples": [
         {
-          "input": "https://twitter.com/enigma/status/1234",
-          "expectedOutput": "https://xcancel.com/enigma/status/1234"
+          "input": "https://twitter.com/elmo/status/2068016008086872413",
+          "expectedOutput": "https://xcancel.com/elmo/status/2068016008086872413"
         }
       ],
       "preserveHostInPath": false,
@@ -448,8 +449,8 @@
       "targetHost": "xcancel.com",
       "examples": [
         {
-          "input": "https://x.com/enigma/status/1234",
-          "expectedOutput": "https://xcancel.com/enigma/status/1234"
+          "input": "https://x.com/elmo/status/2068016008086872413",
+          "expectedOutput": "https://xcancel.com/elmo/status/2068016008086872413"
         }
       ],
       "preserveHostInPath": false,
