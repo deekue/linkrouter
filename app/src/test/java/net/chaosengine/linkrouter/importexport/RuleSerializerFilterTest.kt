@@ -17,7 +17,7 @@ class RuleSerializerFilterTest {
         param: String,
         host: String? = null,
         enabled: Boolean = true,
-        builtIn: Boolean = false,
+        isBuiltIn: Boolean = false,
     ) = QueryParamFilter(
         id = 0,
         name = param,
@@ -25,14 +25,14 @@ class RuleSerializerFilterTest {
         host = host,
         enabled = enabled,
         priority = 0,
-        isBuiltIn = builtIn,
+        isBuiltIn = isBuiltIn,
     )
 
     @Test
     fun roundTrip_globalAndScopedFilters_preservesAllFields() {
-        val global = filter("utm_source", host = null, enabled = true, builtIn = false)
-        val scoped = filter("_t", host = "tiktok.com", enabled = true, builtIn = false)
-        val disabledScoped = filter("si", host = "youtube.com", enabled = false, builtIn = false)
+        val global = filter("utm_source", host = null, enabled = true, isBuiltIn = false)
+        val scoped = filter("_t", host = "tiktok.com", enabled = true, isBuiltIn = false)
+        val disabledScoped = filter("si", host = "youtube.com", enabled = false, isBuiltIn = false)
 
         val json = RuleSerializer.toJson(emptyList(), emptyList(), listOf(global, scoped, disabledScoped))
         val parsed = RuleSerializer.fromFilterJson(json)
@@ -57,8 +57,8 @@ class RuleSerializerFilterTest {
 
     @Test
     fun roundTrip_builtinFlagSurvives() {
-        val builtIn = filter("utm_medium", host = null, enabled = true, builtIn = true)
-        val json = RuleSerializer.toJson(emptyList(), emptyList(), listOf(builtIn))
+        val isBuiltIn = filter("utm_medium", host = null, enabled = true, isBuiltIn = true)
+        val json = RuleSerializer.toJson(emptyList(), emptyList(), listOf(isBuiltIn))
         val parsed = RuleSerializer.fromFilterJson(json)
         assertEquals(true, parsed.single().isBuiltIn)
     }

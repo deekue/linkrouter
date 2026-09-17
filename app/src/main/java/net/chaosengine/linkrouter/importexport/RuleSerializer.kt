@@ -68,7 +68,7 @@ object RuleSerializer {
         val param: String,
         val host: String? = null,
         val enabled: Boolean = true,
-        val builtIn: Boolean = false,
+        val isBuiltIn: Boolean = false,
     )
 
     @JsonClass(generateAdapter = true)
@@ -77,7 +77,7 @@ object RuleSerializer {
         val host: String,
         val pathPrefix: String? = null,
         val enabled: Boolean = true,
-        val builtIn: Boolean = false,
+        val isBuiltIn: Boolean = false,
     )
 
     @JsonClass(generateAdapter = true)
@@ -144,7 +144,7 @@ object RuleSerializer {
                     param = it.param,
                     host = it.host,
                     enabled = it.enabled,
-                    builtIn = it.isBuiltIn,
+                    isBuiltIn = it.isBuiltIn,
                 )
             },
             shortenerHosts = hosts.map {
@@ -153,7 +153,7 @@ object RuleSerializer {
                     host = it.host,
                     pathPrefix = it.pathPrefix,
                     enabled = it.enabled,
-                    builtIn = it.isBuiltIn,
+                    isBuiltIn = it.isBuiltIn,
                 )
             },
             hostRewrites = hostRewrites.map {
@@ -217,7 +217,7 @@ object RuleSerializer {
                 host = dto.host,
                 enabled = dto.enabled,
                 priority = 0,
-                isBuiltIn = dto.builtIn,
+                isBuiltIn = dto.isBuiltIn,
             )
         }
     }
@@ -233,7 +233,7 @@ object RuleSerializer {
                 pathPrefix = dto.pathPrefix,
                 enabled = dto.enabled,
                 priority = 0,
-                isBuiltIn = dto.builtIn,
+                isBuiltIn = dto.isBuiltIn,
             )
         }
     }
