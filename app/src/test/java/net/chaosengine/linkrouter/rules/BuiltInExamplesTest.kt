@@ -69,11 +69,56 @@ class BuiltInExamplesTest {
     }
 
     @Test
-    fun at_least_one_example_is_declared() {
-        // Guard against the JSON "examples" field being silently dropped from the seed.
+    fun builtInRulesExamples_resolveToTheirTarget() {
+        // For every "rules" fixture (isBuiltIn true AND false), resolve each declared
+        // input with the rule (enabled) and assert the destination is what the JSON
+        // declares. expectedOutput is the rule's destination: targetActivity when
+        // that is the meaningful destination, else targetPackage.
+        for ((rule, examples) in builtInRulesExamples) {
+            if (examples.isEmpty()) continue
+            val enabled = rule.copy(enabled = true)
+            val expectedDest = rule.targetActivity ?: rule.targetPackage
+            for ((idx, ex) in examples.withIndex()) {
+                val matched = RuleEngine.resolve(listOf(enabled), ex.input)
+                assertEquals(
+                    "rule '${rule.pattern}' example #$idx did not match (input=${ex.input})",
+                    enabled,
+                    matched,
+                )
+                assertEquals(
+                    "rule '${rule.pattern}' example #$idx (input=${ex.input}) resolved to wrong target",
+                    expectedDest,
+                    matched!!.targetActivity ?: matched.targetPackage,
+                )
+            }
+        }
+    }
+
+    @Test
+    fun isBuiltInFalse_rules_areExcludedFromImportButPresentInExamples() {
+        // The model has no isBuiltIn field, so the two generated vals are the
+        // observable signal of the build-time filter:
+        //   * `builtInRules`       <- imported at build time  (isBuiltIn=true only)
+        //   * `builtInRulesExamples` <- test-facing set (isBuiltIn true AND false)
+        // A genuine isBuiltIn=false fixture therefore sits in builtInRulesExamples
+        // but is ABSENT from builtInRules. Assert both directions really happen.
+        val importedPatterns = builtInRules.mapTo(HashSet()) { it.pattern }
+        val allPatterns = builtInRulesExamples.map { it.first.pattern }
+
+        // (1) imported set is a proper subset of the test-facing set.
         assertTrue(
-            "expected at least one built-in rule to declare examples",
-            builtInExamples.values.any { it.isNotEmpty() },
+            "imported builtInRules should be a subset of builtInRulesExamples",
+            allPatterns.containsAll(importedPatterns),
+        )
+        val excludedPatterns = allPatterns.filter { it !in importedPatterns }
+        assertTrue(
+            "expected at least one isBuiltIn=false rule present in builtInRulesExamples but excluded from builtInRules",
+            excludedPatterns.isNotEmpty(),
+        )
+        // (2) the isBuiltIn=true fixture(s) ARE imported at build time.
+        assertTrue(
+            "expected at least one isBuiltIn=true rule to be imported into builtInRules",
+            importedPatterns.isNotEmpty() && importedPatterns.all { it in allPatterns },
         )
     }
 }

@@ -1,6 +1,34 @@
 {
   "version": 1,
-  "rules": [],
+  "rules": [
+    {
+      "pattern": "twitter.com",
+      "matchType": "EXACT_HOST",
+      "targetPackage": "org.mozilla.firefox",
+      "targetActivity": null,
+      "openMode": "NORMAL",
+      "enabled": true,
+      "priority": 100,
+      "isBuiltIn": true,
+      "examples": [
+        { "input": "https://twitter.com/enigma/status/1234", "expectedOutput": "org.mozilla.firefox" },
+        { "input": "https://twitter.com/enigma", "expectedOutput": "org.mozilla.firefox" }
+      ]
+    },
+    {
+      "pattern": "reddit.com/redirect/",
+      "matchType": "PATH_PREFIX",
+      "targetPackage": "com.reddit.frontpage",
+      "targetActivity": null,
+      "openMode": "PRIVATE",
+      "enabled": true,
+      "priority": 50,
+      "isBuiltIn": false,
+      "examples": [
+        { "input": "https://reddit.com/redirect/abc123", "expectedOutput": "com.reddit.frontpage" }
+      ]
+    }
+  ],
   "redirectFormats": [
     {
       "name": "Google www",
