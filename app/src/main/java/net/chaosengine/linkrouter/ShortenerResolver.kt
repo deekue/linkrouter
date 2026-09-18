@@ -94,8 +94,26 @@ object ShortenerResolver {
                 continue
             }
 
-            // Settled page (e.g. 200). Final destination, or a meta/JS interstitial?
+            // Settled page (e.g. 200). bit.ly-style shortener, final destination,
+            // or a meta/JS interstitial?
             val body = if (resp.body.length > BODY_CAP) resp.body.substring(0, BODY_CAP) else resp.body
+
+            // bit.ly does NOT send an HTTP redirect: it answers 200 with an
+            // interstitial page that carries the real destination in an
+            // `<a id="action:continue" href="...">` anchor. Unlike the meta/JS
+            // interstitials below (which need a WebView to execute), the target
+            // is verbatim in the body, so resolve it directly. Checked BEFORE the
+            // generic meta/JS heuristic on purpose: the bit.ly marker is a hard,
+            // self-contained destination, and a page could carry both — trusting
+            // the explicit href is strictly better than a WebView escalation we
+            // can avoid. On extraction failure we fall through to the existing
+            // behaviour (no regression).
+            val bitly = extractBitlyTarget(body)
+            if (bitly != null) {
+                ShortenResolveLog.i("fast-path resolve url=$current -> Resolved (bit.ly target '$bitly') after ${hops} hop(s)")
+                return Result.Resolved(bitly, hops)
+            }
+
             val lb = body.lowercase()
             val meta = lb.contains("http-equiv") && lb.contains("refresh")
             val js = lb.contains("location.replace") || lb.contains("location.href")
@@ -127,6 +145,89 @@ object ShortenerResolver {
         } catch (e: Exception) {
             ""
         }
+    }
+
+    /**
+     * Extract the real destination from a bit.ly interstitial body.
+     *
+     * bit.ly serves a 200 HTML page (no HTTP redirect) whose target lives in an
+     * anchor: `<a id="action:continue" href="https://...">`. We locate the first
+     * `<a ...>` tag whose attributes include `id="action:continue"` (single or
+     * double quotes), then pull the `href` value from that same tag.
+     *
+     * Dependency-free string scanning, consistent with the existing substring
+     * heuristics. Returns `null` when no such anchor / href is present (or it is
+     * empty / whitespace) so the caller falls back to its existing behaviour.
+     */
+    private fun extractBitlyTarget(body: String): String? {
+        val lb = body.lowercase()
+        var searchFrom = 0
+        while (true) {
+            // Find the next opening <a> tag (word-boundary so we don't match <aside>, <area>, ...).
+            // Case-insensitive: HTML tag names are not case-sensitive (<A> is valid).
+            val tagStart = indexOfAnchorTag(lb, searchFrom)
+            if (tagStart < 0) return null
+
+            val tagEnd = lb.indexOf('>', tagStart)
+            if (tagEnd < 0) return null
+            // Operate on the original (un-lowercased) substring so href values are
+            // returned exactly as written; only tag/attribute names were matched by name.
+            val attrs = body.substring(tagStart + 1, tagEnd)
+            searchFrom = tagEnd + 1
+
+            // Only consider anchors carrying the bit.ly marker id.
+            if (!attrsHasId(attrs, "action:continue")) continue
+            val href = extractAttr(attrs, "href")?.trim()
+            if (!href.isNullOrEmpty()) return href
+            // href missing/empty: keep scanning in case a later anchor has a real
+            // one, but never return whitespace / empty (would regress).
+        }
+    }
+
+    /** Return the start index of the next `<a` opening tag with a word boundary after `a`; or -1. */
+    private fun indexOfAnchorTag(body: String, from: Int): Int {
+        var i = from
+        while (true) {
+            i = body.indexOf("<a", i)
+            if (i < 0) return -1
+            // Word boundary: the char after `<a` must not be a letter/digit (rules out <aside>, <area>, ...).
+            val next = if (i + 2 < body.length) body[i + 2] else ' '
+            if (!next.isLetterOrDigit()) return i
+            i += 2
+        }
+    }
+
+    /** Does this anchor's attribute string carry `id="action:continue"` (single or double quotes)? */
+    private fun attrsHasId(attrs: String, idValue: String): Boolean {
+        val lb = attrs.lowercase()
+        return lb.contains("id=\"$idValue\"") || lb.contains("id='$idValue'")
+    }
+
+    /** Extract the value of a named attribute from an attribute string; null if absent. */
+    private fun extractAttr(attrs: String, name: String): String? {
+        val lb = attrs.lowercase()
+        val prefix = name.lowercase() + "="
+        var i = 0
+        while (i < attrs.length) {
+            i = lb.indexOf(prefix, i)
+            if (i < 0) return null
+            // Ensure the attribute starts at a word boundary (preceded by whitespace / start).
+            if (i != 0 && !attrs[i - 1].isWhitespace()) { i += prefix.length; continue }
+            var j = i + prefix.length
+            while (j < attrs.length && attrs[j].isWhitespace()) j++
+            if (j >= attrs.length) return null
+            val quote = attrs[j]
+            if (quote == '"' || quote == '\'') {
+                val close = attrs.indexOf(quote, j + 1)
+                if (close < 0) return null
+                return attrs.substring(j + 1, close)
+            }
+            // Unquoted value: read until whitespace or end of the attribute string.
+            var end = j
+            while (end < attrs.length && !attrs[end].isWhitespace()) end++
+            return attrs.substring(j, end)
+        }
+        return null
     }
 
     /**

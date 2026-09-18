@@ -162,6 +162,98 @@ class ShortenerResolverTest {
         assertEquals("https://t.co/boom", error.url)
         assertNotNull(error.message)
     }
+
+    @Test
+    fun `bitly action continue anchor resolves to real target`() {
+        val body = "<html><body><a id=\"action:continue\" href=\"https://example.com/real\"></a></body></html>"
+        val fetcher = FakeFetcher(
+            mapOf(
+                "https://bit.ly/abc" to ShortenerResolver.HopResponse(200, null, body),
+            )
+        )
+        val result = ShortenerResolver.resolve("https://bit.ly/abc", fetcher)
+        val resolved = result as ShortenerResolver.Result.Resolved
+        assertEquals("https://example.com/real", resolved.finalUrl)
+    }
+
+    @Test
+    fun `bitly anchor is not treated as an interstitial`() {
+        val body = "<html><body><a id=\"action:continue\" href=\"https://example.com/real\"></a></body></html>"
+        val fetcher = FakeFetcher(
+            mapOf(
+                "https://bit.ly/abc" to ShortenerResolver.HopResponse(200, null, body),
+            )
+        )
+        val result = ShortenerResolver.resolve("https://bit.ly/abc", fetcher)
+        assertTrue(result !is ShortenerResolver.Result.Interstitial)
+    }
+
+    @Test
+    fun `bitly anchor single quotes resolves to real target`() {
+        val body = "<html><body><a id='action:continue' href='https://example.com/real'></a></body></html>"
+        val fetcher = FakeFetcher(
+            mapOf(
+                "https://bit.ly/abc" to ShortenerResolver.HopResponse(200, null, body),
+            )
+        )
+        val result = ShortenerResolver.resolve("https://bit.ly/abc", fetcher)
+        val resolved = result as ShortenerResolver.Result.Resolved
+        assertEquals("https://example.com/real", resolved.finalUrl)
+    }
+
+    @Test
+    fun `mixed case anchor tag and attributes resolves to real target`() {
+        // Uppercase tag `<A` and mixed-case `ID`/`href` attributes must still match.
+        val body = "<html><body><A ID='action:continue' href='https://example.com/real'></A></body></html>"
+        val fetcher = FakeFetcher(
+            mapOf(
+                "https://bit.ly/abc" to ShortenerResolver.HopResponse(200, null, body),
+            )
+        )
+        val result = ShortenerResolver.resolve("https://bit.ly/abc", fetcher)
+        val resolved = result as ShortenerResolver.Result.Resolved
+        assertEquals("https://example.com/real", resolved.finalUrl)
+    }
+
+    @Test
+    fun `action continue with empty href resolves to current url`() {
+        val body = "<html><body><a id=\"action:continue\" href=\"\"></a></body></html>"
+        val fetcher = FakeFetcher(
+            mapOf(
+                "https://bit.ly/abc" to ShortenerResolver.HopResponse(200, null, body),
+            )
+        )
+        val result = ShortenerResolver.resolve("https://bit.ly/abc", fetcher)
+        val resolved = result as ShortenerResolver.Result.Resolved
+        assertEquals("https://bit.ly/abc", resolved.finalUrl)
+    }
+
+    @Test
+    fun `no action continue anchor still resolves to current url`() {
+        // Regression guard: unchanged behaviour when the bit.ly marker is absent.
+        val fetcher = FakeFetcher(
+            mapOf(
+                "https://bit.ly/abc" to ShortenerResolver.HopResponse(200, null, "<html><body>hello</body></html>"),
+            )
+        )
+        val result = ShortenerResolver.resolve("https://bit.ly/abc", fetcher)
+        val resolved = result as ShortenerResolver.Result.Resolved
+        assertEquals("https://bit.ly/abc", resolved.finalUrl)
+    }
+
+    @Test
+    fun `aside tag is not matched as an anchor`() {
+        // <aside ... id=...> must not be mistaken for the <a> marker anchor.
+        val body = "<html><aside id=\"action:continue\"></aside><body>hello</body></html>"
+        val fetcher = FakeFetcher(
+            mapOf(
+                "https://bit.ly/abc" to ShortenerResolver.HopResponse(200, null, body),
+            )
+        )
+        val result = ShortenerResolver.resolve("https://bit.ly/abc", fetcher)
+        val resolved = result as ShortenerResolver.Result.Resolved
+        assertEquals("https://bit.ly/abc", resolved.finalUrl)
+    }
 }
 
 /**
