@@ -74,8 +74,11 @@ Output shown in this page. The reliable workflow:
     <thead><tr><th>Name</th><th>Host</th><th>Path prefix</th><th>Input</th><th>Expected Output</th></tr></thead>
     <tbody>
       {{ range $data.shortenerHosts }}
+      {{ $name := .name }}
+      {{ $host := .host }}
+      {{ $pathPrefix := .pathPrefix }}
       {{ range .examples }}
-      <tr><td>{{ .name }}</td><td><code>{{ .host }}</code></td><td>{{ if .pathPrefix }}<code>{{ .pathPrefix }}</code>{{ else }}—{{ end }}</td><td><a href="{{ .input }}">{{ .input }}</a></td><td><code>{{ .expectedOutput }}</code></td></tr>
+      <tr><td>{{ $name }}</td><td><code>{{ $host }}</code></td><td>{{ if $pathPrefix }}<code>{{ $pathPrefix }}</code>{{ else }}—{{ end }}</td><td><a href="{{ .input }}">{{ .input }}</a></td><td><code>{{ .expectedOutput }}</code></td></tr>
       {{ end }}
       {{ end }}
     </tbody>
