@@ -16,7 +16,7 @@ Output shown in this page. The reliable workflow:
 {{ markdownify `3. Open the **Input** link and confirm the target browser opened exactly the
    **Expected Output** shown in the adjacent cell.` }}
 
-{{ $data := index .Site.Data "app" "linkrouter-rules-examples" }}
+{{ $data := index hugo.Data "app" "linkrouter-rules-examples" }}
 {{ if not $data }}
   <p class="note">No rule-example data found (see <code>docs/hugo.yaml</code> mounts).</p>
 {{ else }}
@@ -24,12 +24,12 @@ Output shown in this page. The reliable workflow:
   {{ if $data.rules }}
   <h3>Rules</h3>
   <table>
-    <thead><tr><th>Pattern</th><th>Expected Output</th><th>Input</th></tr></thead>
+    <thead><tr><th>Pattern</th><th>Input</th><th>Expected Output</th></tr></thead>
     <tbody>
       {{ range $data.rules }}
       {{ $pat := .pattern }}
       {{ range .examples }}
-      <tr><td><code>{{ $pat }}</code></td><td><code>{{ .expectedOutput }}</code></td><td><a href="{{ .input }}">{{ .input }}</a></td></tr>
+      <tr><td><code>{{ $pat }}</code></td><td><a href="{{ .input }}">{{ .input }}</a></td><td><code>{{ .expectedOutput }}</code></td></tr>
       {{ end }}
       {{ end }}
     </tbody>
@@ -39,13 +39,13 @@ Output shown in this page. The reliable workflow:
   {{ if $data.redirectFormats }}
   <h3>Redirect formats</h3>
   <table>
-    <thead><tr><th>Name</th><th>Pattern</th><th>Expected Output</th><th>Input</th></tr></thead>
+    <thead><tr><th>Name</th><th>Pattern</th><th>Input</th><th>Expected Output</th></tr></thead>
     <tbody>
       {{ range $data.redirectFormats }}
       {{ $nm := .name }}
       {{ $pat := .pattern }}
       {{ range .examples }}
-      <tr><td>{{ $nm }}</td><td><code>{{ $pat }}</code></td><td><code>{{ .expectedOutput }}</code></td><td><a href="{{ .input }}">{{ .input }}</a></td></tr>
+      <tr><td>{{ $nm }}</td><td><code>{{ $pat }}</code></td><td><a href="{{ .input }}">{{ .input }}</a></td><td><code>{{ .expectedOutput }}</code></td></tr>
       {{ end }}
       {{ end }}
     </tbody>
@@ -55,13 +55,13 @@ Output shown in this page. The reliable workflow:
   {{ if $data.queryParamFilters }}
   <h3>Query-param filters</h3>
   <table>
-    <thead><tr><th>Param</th><th>Host scope</th><th>Expected Output</th><th>Input</th></tr></thead>
+    <thead><tr><th>Param</th><th>Host scope</th><th>Input</th><th>Expected Output</th></tr></thead>
     <tbody>
       {{ range $data.queryParamFilters }}
       {{ $prm := .param }}
       {{ $host := .host }}
       {{ range .examples }}
-      <tr><td><code>{{ $prm }}</code></td><td>{{ if $host }}<code>{{ $host }}</code>{{ else }}(any){{ end }}</td><td><code>{{ .expectedOutput }}</code></td><td><a href="{{ .input }}">{{ .input }}</a></td></tr>
+      <tr><td><code>{{ $prm }}</code></td><td>{{ if $host }}<code>{{ $host }}</code>{{ else }}(any){{ end }}</td><td><a href="{{ .input }}">{{ .input }}</a></td><td><code>{{ .expectedOutput }}</code></td></tr>
       {{ end }}
       {{ end }}
     </tbody>
@@ -69,12 +69,14 @@ Output shown in this page. The reliable workflow:
   {{ end }}
 
   {{ if $data.shortenerHosts }}
-  <h3>Shortener hosts <small>(no per-link examples — flip on the host in Settings, then test with any real short link)</small></h3>
+  <h3>Shortener hosts</h3>
   <table>
-    <thead><tr><th>Name</th><th>Host</th><th>Path prefix</th><th>Enabled</th></tr></thead>
+    <thead><tr><th>Name</th><th>Host</th><th>Path prefix</th><th>Input</th><th>Expected Output</th></tr></thead>
     <tbody>
       {{ range $data.shortenerHosts }}
-      <tr><td>{{ .name }}</td><td><code>{{ .host }}</code></td><td>{{ if .pathPrefix }}<code>{{ .pathPrefix }}</code>{{ else }}—{{ end }}</td><td>{{ if .enabled }}yes{{ else }}no{{ end }}</td></tr>
+      {{ range .examples }}
+      <tr><td>{{ .name }}</td><td><code>{{ .host }}</code></td><td>{{ if .pathPrefix }}<code>{{ .pathPrefix }}</code>{{ else }}—{{ end }}</td><td><a href="{{ .input }}">{{ .input }}</a></td><td><code>{{ .expectedOutput }}</code></td></tr>
+      {{ end }}
       {{ end }}
     </tbody>
   </table>
@@ -83,13 +85,13 @@ Output shown in this page. The reliable workflow:
   {{ if $data.hostRewrites }}
   <h3>Host rewrites</h3>
   <table>
-    <thead><tr><th>Match host</th><th>Target host</th><th>Expected Output</th><th>Input</th></tr></thead>
+    <thead><tr><th>Match host</th><th>Target host</th><th>Input</th><th>Expected Output</th></tr></thead>
     <tbody>
       {{ range $data.hostRewrites }}
       {{ $mh := .matchHost }}
       {{ $th := .targetHost }}
       {{ range .examples }}
-      <tr><td><code>{{ $mh }}</code></td><td><code>{{ $th }}</code></td><td><code>{{ .expectedOutput }}</code></td><td><a href="{{ .input }}">{{ .input }}</a></td></tr>
+      <tr><td><code>{{ $mh }}</code></td><td><code>{{ $th }}</code></td><td><a href="{{ .input }}">{{ .input }}</a></td><td><code>{{ .expectedOutput }}</code></td></tr>
       {{ end }}
       {{ end }}
     </tbody>
