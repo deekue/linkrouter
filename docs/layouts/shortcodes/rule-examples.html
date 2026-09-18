@@ -1,4 +1,4 @@
-## How to test
+{{ markdownify `## How to test
 
 The links below exercise LinkRouter end-to-end. Because LinkRouter *is* your
 default browser, a bare in-browser tap goes straight through it, which is exactly
@@ -11,9 +11,10 @@ Output shown in this page. The reliable workflow:
    this page.
 2. **Print this page to a PDF**, or just use your browser's own
    Ctrl/Cmd+Print. Then read it on the phone and tap the links straight from
-   the document.  <a href="#" onclick="window.print(); return false;">Print to PDF</a>
-3. Open the **Input** link and confirm the target browser opened exactly the
-   **Expected Output** shown in the adjacent cell.
+   the document.` }}
+<p><a href="#" onclick="window.print(); return false;">Print to PDF</a></p>
+{{ markdownify `3. Open the **Input** link and confirm the target browser opened exactly the
+   **Expected Output** shown in the adjacent cell.` }}
 
 {{ $data := index .Site.Data "app" "linkrouter-rules-examples" }}
 {{ if not $data }}
