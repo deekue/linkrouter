@@ -114,6 +114,20 @@ object ShortenerResolver {
                 return Result.Resolved(bitly, hops)
             }
 
+            // A `<meta http-equiv="refresh" ...>` page (e.g. a Google Docs `/pub`
+            // interstitial) already carries its destination in the body. Resolve it
+            // directly instead of escalating to a WebView: the WebView path times
+            // out on slow ad/tracker beacons (main frame never fires
+            // `onPageFinished`) and then falls back to the shortener URL. Only an
+            // absolute http(s) target is accepted; anything else (no url, relative,
+            // tel:, ...) falls through to the meta/JS Interstitial behaviour below,
+            // preserving the existing classification (no regression).
+            val metaTarget = extractMetaRefreshTarget(body)
+            if (metaTarget != null) {
+                ShortenResolveLog.i("fast-path resolve url=$current -> Resolved (meta refresh target '$metaTarget') after ${hops} hop(s)")
+                return Result.Resolved(metaTarget, hops)
+            }
+
             val lb = body.lowercase()
             val meta = lb.contains("http-equiv") && lb.contains("refresh")
             val js = lb.contains("location.replace") || lb.contains("location.href")
@@ -182,6 +196,97 @@ object ShortenerResolver {
             // href missing/empty: keep scanning in case a later anchor has a real
             // one, but never return whitespace / empty (would regress).
         }
+    }
+
+    /**
+     * Extract the destination from a `<meta http-equiv="refresh">` redirect page.
+     *
+     * Real-world forms handled (all case-insensitive, single or double quotes):
+     *  - `content="0; url=https://example.com/x"`  (delay, space after `;`)
+     *  - `content="0;url=https://example.com/x"`   (delay, no space)
+     *  - `content="https://example.com/x"`         (url only, no delay)
+     *  - `url=<unquoted value>` inside the content attribute
+     *
+     * Reuses [extractAttr] for the attribute value (consistent with
+     * [extractBitlyTarget]). Returns `null` when there is no meta-refresh tag, no
+     * usable target, an empty / whitespace target, or a non-absolute-http(s)
+     * target (e.g. relative or `tel:`) so the caller's existing behaviour stands.
+     */
+    private fun extractMetaRefreshTarget(body: String): String? {
+        val lb = body.lowercase()
+        var searchFrom = 0
+        while (true) {
+            val tagStart = indexOfMetaTag(lb, searchFrom)
+            if (tagStart < 0) return null
+            val tagEnd = lb.indexOf('>', tagStart)
+            if (tagEnd < 0) return null
+            // Operate on the original substring so the URL is returned as written.
+            val attrs = body.substring(tagStart + 1, tagEnd)
+            searchFrom = tagEnd + 1
+
+            // Only consider meta tags that are a refresh redirect.
+            if (!attrsContainsHttpEquiv(attrs, "refresh")) continue
+
+            val content = extractAttr(attrs, "content")?.trim() ?: continue
+            val target = metaRefreshUrlFromContent(content)?.trim() ?: continue
+            if (target.isEmpty()) continue
+            // Only an absolute http(s) URL is a usable destination here.
+            if (!target.startsWith("http://") && !target.startsWith("https://")) continue
+            return target
+        }
+    }
+
+    /** Return the start index of the next `<meta` opening tag (word boundary); or -1. */
+    private fun indexOfMetaTag(body: String, from: Int): Int {
+        var i = from
+        while (true) {
+            i = body.indexOf("<meta", i)
+            if (i < 0) return -1
+            // Word boundary: the char after `<meta` must not be a letter/digit
+            // (rules out `<metadata>` and friends).
+            val next = if (i + 5 < body.length) body[i + 5] else ' '
+            if (!next.isLetterOrDigit()) return i
+            i += 1
+        }
+    }
+
+    /** Does this meta tag's attribute string carry `http-equiv="refresh"` (single or double quotes)? */
+    private fun attrsContainsHttpEquiv(attrs: String, value: String): Boolean {
+        val lb = attrs.lowercase()
+        return lb.contains("http-equiv=\"$value\"") || lb.contains("http-equiv='$value'")
+    }
+
+    /**
+     * Pull the redirect URL out of a meta-refresh `content` attribute value.
+     * Accepts an explicit `url=<target>` (any casing) or a bare absolute URL.
+     * Returns `null` when no target can be parsed.
+     *
+     * [content] is already an unquoted attribute value (as returned by
+     * [extractAttr]), so the `url=` value runs simply to the next whitespace:
+     * URLs do not contain whitespace.
+     */
+    private fun metaRefreshUrlFromContent(content: String): String? {
+        val lb = content.lowercase()
+        // Preferred: an explicit `url=` token (any casing).
+        var i = 0
+        while (true) {
+            i = lb.indexOf("url=", i)
+            if (i < 0) break
+            // Word boundary so we match the token, not a substring of a longer word.
+            // The preceding char may be whitespace, `;`, or another non-word
+            // separator (the content `0;url=…` form puts `;` before `url=`).
+            if (i != 0 && content[i - 1].isLetterOrDigit()) { i += 1; continue }
+            var j = i + "url=".length
+            while (j < content.length && content[j].isWhitespace()) j++
+            var end = j
+            while (end < content.length && !content[end].isWhitespace()) end++
+            val v = content.substring(j, end).trim()
+            if (v.isNotEmpty()) return v
+        }
+        // Fallback: no `url=` token. Strip a leading `delay;` portion and treat
+        // what remains as a bare URL.
+        val bare = content.substringAfterLast(';').trim()
+        return bare.ifEmpty { null }
     }
 
     /** Return the start index of the next `<a` opening tag with a word boundary after `a`; or -1. */

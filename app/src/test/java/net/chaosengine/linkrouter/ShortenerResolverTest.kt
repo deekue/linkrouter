@@ -113,7 +113,10 @@ class ShortenerResolverTest {
     }
 
     @Test
-    fun `meta refresh body is interstitial`() {
+    fun `meta refresh body with http target resolves to target`() {
+        // Changed from the old "interstitial" expectation: a meta-refresh page
+        // carries a usable http(s) destination, which is now resolved directly
+        // (avoiding the WebView escalation that times out on slow beacons).
         val body = "<html><head><meta http-equiv=\"refresh\" content=\"0;url=https://final.example/\">"
         val fetcher = FakeFetcher(
             mapOf(
@@ -122,9 +125,24 @@ class ShortenerResolverTest {
             )
         )
         val result = ShortenerResolver.resolve("https://t.co/abc", fetcher)
+        val resolved = result as ShortenerResolver.Result.Resolved
+        assertEquals("https://final.example/", resolved.finalUrl)
+        assertEquals(1, resolved.hops)
+    }
+
+    @Test
+    fun `meta refresh body without http target is interstitial`() {
+        // A meta-refresh whose url is not an absolute http(s) target (no usable
+        // destination) keeps the legacy Interstitial classification.
+        val body = "<html><head><meta http-equiv=\"refresh\" content=\"0;url=tel:12345\">"
+        val fetcher = FakeFetcher(
+            mapOf(
+                "https://t.co/abc" to ShortenerResolver.HopResponse(200, null, body),
+            )
+        )
+        val result = ShortenerResolver.resolve("https://t.co/abc", fetcher)
         val interstitial = result as ShortenerResolver.Result.Interstitial
-        assertEquals("https://interstitial.example/x", interstitial.url)
-        assertEquals(1, interstitial.hops)
+        assertEquals("https://t.co/abc", interstitial.url)
     }
 
     @Test
@@ -253,6 +271,149 @@ class ShortenerResolverTest {
         val result = ShortenerResolver.resolve("https://bit.ly/abc", fetcher)
         val resolved = result as ShortenerResolver.Result.Resolved
         assertEquals("https://bit.ly/abc", resolved.finalUrl)
+    }
+
+    // ------------------------------------------------------------------
+    // Meta-refresh interstitial resolution (Google Docs /pub, slow trackers).
+    // These pages carry a hard, usable destination in the body — the resolver
+    // should return it directly instead of escalating to a WebView (which
+    // times out on slow ad/tracker beacons and then falls back to the URL).
+    // ------------------------------------------------------------------
+
+    @Test
+    fun `meta refresh no space resolves to target`() {
+        val body = "<html><head><meta http-equiv=\"refresh\" content=\"0;url=https://example.com/real\"></head></html>"
+        val fetcher = FakeFetcher(
+            mapOf(
+                "https://bit.ly/abc" to ShortenerResolver.HopResponse(200, null, body),
+            )
+        )
+        val result = ShortenerResolver.resolve("https://bit.ly/abc", fetcher)
+        val resolved = result as ShortenerResolver.Result.Resolved
+        assertEquals("https://example.com/real", resolved.finalUrl)
+    }
+
+    @Test
+    fun `meta refresh spaced resolves to target`() {
+        val body = "<html><head><meta http-equiv=\"refresh\" content=\"0; url=https://example.com/real\"></head></html>"
+        val fetcher = FakeFetcher(
+            mapOf(
+                "https://bit.ly/abc" to ShortenerResolver.HopResponse(200, null, body),
+            )
+        )
+        val result = ShortenerResolver.resolve("https://bit.ly/abc", fetcher)
+        val resolved = result as ShortenerResolver.Result.Resolved
+        assertEquals("https://example.com/real", resolved.finalUrl)
+    }
+
+    @Test
+    fun `meta refresh single quotes resolves to target`() {
+        val body = "<html><head><meta http-equiv='refresh' content='0;url=https://example.com/real'></head></html>"
+        val fetcher = FakeFetcher(
+            mapOf(
+                "https://bit.ly/abc" to ShortenerResolver.HopResponse(200, null, body),
+            )
+        )
+        val result = ShortenerResolver.resolve("https://bit.ly/abc", fetcher)
+        val resolved = result as ShortenerResolver.Result.Resolved
+        assertEquals("https://example.com/real", resolved.finalUrl)
+    }
+
+    @Test
+    fun `meta refresh bare url only resolves to target`() {
+        // No delay; content is the URL itself.
+        val body = "<html><head><meta http-equiv=\"refresh\" content=\"https://example.com/real\"></head></html>"
+        val fetcher = FakeFetcher(
+            mapOf(
+                "https://bit.ly/abc" to ShortenerResolver.HopResponse(200, null, body),
+            )
+        )
+        val result = ShortenerResolver.resolve("https://bit.ly/abc", fetcher)
+        val resolved = result as ShortenerResolver.Result.Resolved
+        assertEquals("https://example.com/real", resolved.finalUrl)
+    }
+
+    @Test
+    fun `meta refresh with non http target is not resolved to that target`() {
+        // tel: is not a usable destination for this resolver; it must fall
+        // through to the meta/JS Interstitial classification.
+        val body = "<html><head><meta http-equiv=\"refresh\" content=\"0;url=tel:12345\"></head></html>"
+        val fetcher = FakeFetcher(
+            mapOf(
+                "https://bit.ly/abc" to ShortenerResolver.HopResponse(200, null, body),
+            )
+        )
+        val result = ShortenerResolver.resolve("https://bit.ly/abc", fetcher)
+        // Must not be Resolved to tel:. The safest expectation: an Interstitial
+        // (the legacy classification that still triggers WebView fallback).
+        val interstitial = result as ShortenerResolver.Result.Interstitial
+        assertEquals("https://bit.ly/abc", interstitial.url)
+    }
+
+    @Test
+    fun `meta refresh without url falls through to interstitial`() {
+        // `content="5"` has no url; must not be extracted. Existing behaviour
+        // (Interstitial) applies.
+        val body = "<html><head><meta http-equiv=\"refresh\" content=\"5\"></head></html>"
+        val fetcher = FakeFetcher(
+            mapOf(
+                "https://bit.ly/abc" to ShortenerResolver.HopResponse(200, null, body),
+            )
+        )
+        val result = ShortenerResolver.resolve("https://bit.ly/abc", fetcher)
+        val interstitial = result as ShortenerResolver.Result.Interstitial
+        assertEquals("https://bit.ly/abc", interstitial.url)
+    }
+
+    @Test
+    fun `normal 200 page with no meta refresh resolves to current url`() {
+        // Regression guard: unchanged behaviour when the meta-refresh marker is absent.
+        val fetcher = FakeFetcher(
+            mapOf(
+                "https://bit.ly/abc" to ShortenerResolver.HopResponse(200, null, "<html><body>hello</body></html>"),
+            )
+        )
+        val result = ShortenerResolver.resolve("https://bit.ly/abc", fetcher)
+        val resolved = result as ShortenerResolver.Result.Resolved
+        assertEquals("https://bit.ly/abc", resolved.finalUrl)
+    }
+
+    @Test
+    fun `multi hop 301 to meta refresh pub page resolves to pub target`() {
+        // Mimics the bit.ly -> Google Docs /pub log scenario: a 301 Location
+        // to a 200 page that is a meta-refresh redirect.
+        val pubBody = "<html><head><meta http-equiv=\"refresh\" content=\"0;url=https://docs.google.com/viewer?a=ABC&embedded=true\"></head></html>"
+        val fetcher = FakeFetcher(
+            mapOf(
+                "https://bit.ly/adhdlist" to ShortenerResolver.HopResponse(
+                    301,
+                    "https://docs.google.com/pub/abc/pub?embedded=true&single=true",
+                    ""
+                ),
+                "https://docs.google.com/pub/abc/pub?embedded=true&single=true" to ShortenerResolver.HopResponse(
+                    200, null, pubBody
+                ),
+            )
+        )
+        val result = ShortenerResolver.resolve("https://bit.ly/adhdlist", fetcher)
+        val resolved = result as ShortenerResolver.Result.Resolved
+        assertEquals("https://docs.google.com/viewer?a=ABC&embedded=true", resolved.finalUrl)
+        assertEquals(1, resolved.hops)
+    }
+
+    @Test
+    fun `mixed case meta tag and attributes resolves to target`() {
+        // Uppercase tag `<META`, mixed-case `HTTP-EQUIV` / `content`, and
+        // single-quoted value must still match.
+        val body = "<html><head><META HTTP-EQUIV='refresh' content='0;url=https://example.com/real'></head></html>"
+        val fetcher = FakeFetcher(
+            mapOf(
+                "https://bit.ly/abc" to ShortenerResolver.HopResponse(200, null, body),
+            )
+        )
+        val result = ShortenerResolver.resolve("https://bit.ly/abc", fetcher)
+        val resolved = result as ShortenerResolver.Result.Resolved
+        assertEquals("https://example.com/real", resolved.finalUrl)
     }
 }
 

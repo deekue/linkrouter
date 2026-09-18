@@ -418,9 +418,9 @@ class DispatcherActivityTest {
         AppContainer.shortenerHostRepository = FakeShortenerRepo(listOf(
             net.chaosengine.linkrouter.rules.ShortenerHost(id = 1, name = "t.co", host = "t.co", enabled = true, isBuiltIn = true)
         ))
-        // Fast path: a 200 page whose body triggers an INTERSTITIAL (meta refresh).
+        // Fast path: a 200 page whose body triggers an INTERSTITIAL (JS redirect).
         AppContainer.shortenerFetcher = ShortenerResolver.Fetcher { _ ->
-            ShortenerResolver.HopResponse(200, null, "<html><head><meta http-equiv=\"refresh\" content=\"0;url=https://example.com/page\"></head></html>")
+            ShortenerResolver.HopResponse(200, null, "<html><script>window.location.replace('https://example.com/page')</script></html>")
         }
         // Web resolver fails → returns null → degrade to the original URL (D6).
         val web = FakeWebResolver(null)
