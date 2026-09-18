@@ -128,14 +128,18 @@ object ShortenerResolver {
                 return Result.Resolved(metaTarget, hops)
             }
 
-            val lb = body.lowercase()
-            val meta = lb.contains("http-equiv") && lb.contains("refresh")
-            val js = lb.contains("location.replace") || lb.contains("location.href")
+            // Interstitial heuristics, now precise: a REAL meta-refresh tag with
+            // a clean content value, or an actual JS redirect WRITE. Substring
+            // matching (e.g. the old `lb.contains("location.href")`) produced
+            // false positives on pages that merely mention these strings (e.g. a
+            // JS-embedded template literal, or a read of `window.location.href`)
+            // and misclassified real destinations as Interstitial.
+            val meta = hasCleanMetaRefresh(body)
+            val js = hasJsRedirect(body)
             if (meta || js) {
                 ShortenResolveLog.i(
                     "fast-path resolve url=$current -> Interstitial after ${hops} hop(s) " +
-                    "(metaRefresh=${lb.contains("http-equiv") && lb.contains("refresh")} " +
-                    "jsReplace=${lb.contains("location.replace")} jsHref=${lb.contains("location.href")})"
+                    "(metaRefresh=$meta jsRedirect=$js)"
                 )
                 return Result.Interstitial(current, hops)
             }
@@ -233,6 +237,74 @@ object ShortenerResolver {
             // Only an absolute http(s) URL is a usable destination here.
             if (!target.startsWith("http://") && !target.startsWith("https://")) continue
             return target
+        }
+    }
+
+    /**
+     * True only when [body] carries a REAL `<meta http-equiv="refresh">` tag
+     * whose `content` attribute is a clean (non-JS) value.
+     *
+     * A genuine meta-refresh `content` is a plain value such as `0; url=...` or
+     * a bare delay like `5`. A JS-embedded template (the false positive, e.g. a
+     * Google Docs `/pub` page whose body literally contains the string
+     * `'<meta http-equiv="refresh" content="0; url=' + d + '>'`) carries quote
+     * characters and/or a `+` (string concatenation) inside the content, so any
+     * of those means this tag is NOT a clean redirect and is excluded. This is
+     * what pins Interstitial for real meta-refresh pages (see the pinned tests)
+     * while letting the JS-embedded false positive fall through to Resolved.
+     *
+     * Reuses [indexOfMetaTag], [attrsContainsHttpEquiv] and [extractAttr] (the
+     * same helpers [extractMetaRefreshTarget] uses) so there is no duplicated
+     * tag-scanning logic.
+     */
+    private fun hasCleanMetaRefresh(body: String): Boolean {
+        val lb = body.lowercase()
+        var searchFrom = 0
+        while (true) {
+            val tagStart = indexOfMetaTag(lb, searchFrom)
+            if (tagStart < 0) return false
+            val tagEnd = lb.indexOf('>', tagStart)
+            if (tagEnd < 0) return false
+            // Operate on the original substring so the value is read as written.
+            val attrs = body.substring(tagStart + 1, tagEnd)
+            searchFrom = tagEnd + 1
+
+            // Only consider meta tags that are a refresh redirect.
+            if (!attrsContainsHttpEquiv(attrs, "refresh")) continue
+
+            val content = extractAttr(attrs, "content")?.trim() ?: continue
+            if (content.isEmpty()) continue
+            // A real meta-refresh content is a plain value; a JS-embedded
+            // template smuggles in quotes and/or `+` (concatenation), so any of
+            // those disqualifies this tag as a clean redirect.
+            if (content.contains('\'') || content.contains('"') || content.contains('+')) continue
+            return true
+        }
+    }
+
+    /**
+     * True only when [body] contains a JS redirect WRITE:
+     *  - `location.replace(`, or
+     *  - `location.assign(`, or
+     *  - `location.href` immediately followed (ignoring whitespace) by `=`.
+     *
+     * A plain READ such as `window.location.href)` must NOT match — the
+     * distinguishing factor is a trailing `=` (write) vs `)`/end-of-token
+     * (read). This pins Interstitial for genuine JS redirects (see the pinned
+     * tests) while letting a read-only reference fall through to Resolved.
+     */
+    private fun hasJsRedirect(body: String): Boolean {
+        val lb = body.lowercase()
+        if (lb.contains("location.replace(") || lb.contains("location.assign(")) return true
+        val token = "location.href"
+        var i = 0
+        while (true) {
+            i = lb.indexOf(token, i)
+            if (i < 0) return false
+            var j = i + token.length
+            while (j < lb.length && lb[j].isWhitespace()) j++
+            if (j < lb.length && lb[j] == '=') return true
+            i += token.length
         }
     }
 

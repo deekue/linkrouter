@@ -415,6 +415,28 @@ class ShortenerResolverTest {
         val resolved = result as ShortenerResolver.Result.Resolved
         assertEquals("https://example.com/real", resolved.finalUrl)
     }
+
+    @Test
+    fun `js embedded false positive markers resolve not interstitial`() {
+        // Regression: a real Google Docs /pub destination page whose body merely
+        // MENTIONS the interstitial strings — the meta-refresh tag as a JS
+        // template literal (with embedded quotes and `+` string concatenation)
+        // and a READ of `window.location.href` (no write) — must NOT be
+        // misclassified Interstitial. Substring matching (http-equiv+refresh,
+        // location.href) fires here, but [ShortenerResolver] now requires a
+        // clean meta-refresh tag or an actual JS redirect write, so this settles
+        // as Resolved (final destination accepted).
+        val body = """<html><script>var d='<meta http-equiv="refresh" content="0; url='+d+'>';function z(){window.location.href}</script></html>"""
+        val fetcher = FakeFetcher(
+            mapOf(
+                "https://docs.google.com/pub/abc/pub?embedded=true" to
+                    ShortenerResolver.HopResponse(200, null, body),
+            )
+        )
+        val result = ShortenerResolver.resolve("https://docs.google.com/pub/abc/pub?embedded=true", fetcher)
+        val resolved = result as ShortenerResolver.Result.Resolved
+        assertEquals("https://docs.google.com/pub/abc/pub?embedded=true", resolved.finalUrl)
+    }
 }
 
 /**
