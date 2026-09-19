@@ -30,3 +30,5 @@ GNU GPL v3 — see [LICENSE](repo/LICENSE). This program is free software: you c
 
 ## Status
 
+[Feature Test Links]({{< relref "tests" >}} "Manual test links") — every rule, redirect format, param filter, shortener host and host-rewrite fixture from `app/linkrouter-rules-examples.json`, rendered with clickable inputs + expected outputs so you can verify the router end-to-end on a phone or tablet.
+

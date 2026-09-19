@@ -104,10 +104,11 @@ open class HostRewriteRepository(private val db: LinkRouterDatabase) {
     suspend fun importAll(rewrites: List<HostRewrite>) = db.withTransaction {
         dao.deleteNonBuiltIn()
         val userRewrites = rewrites.filter { !it.isBuiltIn }
+        val base = dao.all().maxOfOrNull { it.priority } ?: 0
         userRewrites.forEachIndexed { index, rw ->
             dao.upsert(
                 HostRewriteEntity.fromHostRewrite(
-                    rw.copy(id = 0L, isBuiltIn = false, priority = userRewrites.size - index)
+                    rw.copy(id = 0L, isBuiltIn = false, priority = base + (userRewrites.size - index))
                 )
             )
         }

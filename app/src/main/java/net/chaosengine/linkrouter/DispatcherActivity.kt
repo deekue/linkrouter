@@ -284,7 +284,10 @@ class DispatcherActivity : Activity() {
             // pretend).
             is ShortenerResolver.Result.Interstitial -> {
                 val web = withContext(Dispatchers.Main) {
-                    AppContainer.shortenerWebResolver.resolve(this@DispatcherActivity, url)
+                    // Resolve the INTERSTITIAL page the fast path settled on (result.url),
+                    // NOT the original shortener URL. Re-fetching the shortener would
+                    // just settle back on it and defeat the escalation.
+                    AppContainer.shortenerWebResolver.resolve(this@DispatcherActivity, result.url)
                 }
                 if (web != null) {
                     if (BuildConfig.DEBUG) {
