@@ -101,24 +101,24 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.6")
 
     // Persistence (D3: Room)
-    implementation("androidx.room:room-runtime:2.7.2")
-    implementation("androidx.room:room-ktx:2.7.2")
-    ksp("androidx.room:room-compiler:2.7.2")
+    implementation("androidx.room:room-runtime:2.8.5")
+    implementation("androidx.room:room-ktx:2.8.5")
+    ksp("androidx.room:room-compiler:2.8.5")
 
     // Browser icons
     implementation("io.coil-kt:coil-compose:2.7.0")
 
     // JSON import/export (local only, no network)
-    implementation("com.squareup.moshi:moshi:1.15.1")
-    implementation("com.squareup.moshi:moshi-kotlin:1.15.1")
-    ksp("com.squareup.moshi:moshi-kotlin-codegen:1.15.1")
+    implementation("com.squareup.moshi:moshi:1.15.2")
+    implementation("com.squareup.moshi:moshi-kotlin:1.15.2")
+    ksp("com.squareup.moshi:moshi-kotlin-codegen:1.15.2")
 
     // Testing
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.robolectric:robolectric:4.14.1")
     testImplementation("androidx.test:core:1.6.1")
     testImplementation("androidx.test.ext:junit:1.2.1")
-    testImplementation("androidx.room:room-testing:2.7.2")
+    testImplementation("androidx.room:room-testing:2.8.5")
     debugImplementation("androidx.compose.ui:ui-tooling")
 
     // Compose UI tests
