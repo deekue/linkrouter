@@ -175,4 +175,39 @@ class QueryParamFilterRepositoryTest {
         repo.delete(id)
         assertEquals(1, repo.count())
     }
+
+    @Test
+    fun importAllFilters_replacesUserRows_preservesBuiltIns() = runBlocking {
+        // Pre-existing state: one user filter + one built-in.
+        repo.insert(filter("old-user_param", enabled = true))
+        repo.insert(filter("builtin_param", isBuiltIn = true, enabled = false))
+
+        // Import a fresh set containing users + an (imported) built-in.
+        repo.importAllFilters(
+            listOf(
+                filter("new-a_param", enabled = true),
+                filter("new-b_param", host = "scop.example.com", enabled = false),
+                filter("builtin_param", isBuiltIn = true, enabled = true), // imported built-in must be dropped
+            )
+        )
+
+        val all = repo.all()
+        // The old user filter is gone; the two new user filters remain.
+        assertEquals("imported user rows", setOf("new-a_param", "new-b_param"), all.filter { !it.isBuiltIn }.map { it.param }.toSet())
+        // Built-in survived and kept its seeded (disabled) state — the imported built-in was dropped.
+        assertEquals("built-in must be preserved", 1, all.count { it.isBuiltIn })
+        assertEquals(false, all.single { it.isBuiltIn }.enabled)
+    }
+
+    @Test
+    fun importAllFilters_emptyList_clearsUserRows_keepsBuiltIns() = runBlocking {
+        repo.insert(filter("user_param", enabled = true))
+        repo.insert(filter("builtin_param", isBuiltIn = true))
+
+        repo.importAllFilters(emptyList())
+
+        val all = repo.all()
+        assertEquals("no user rows after empty import", 0, all.count { !it.isBuiltIn })
+        assertEquals("built-in survives", 1, all.count { it.isBuiltIn })
+    }
 }

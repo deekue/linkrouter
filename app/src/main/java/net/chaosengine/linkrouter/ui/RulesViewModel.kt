@@ -299,7 +299,7 @@ class RulesViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    suspend fun exportFormats(): List<RedirectFormat> = fmtRepo.all()
+    suspend fun exportFormats(): List<RedirectFormat> = fmtRepo.all().filter { !it.isBuiltIn }
 
     fun importQueryParamFilters(filters: List<net.chaosengine.linkrouter.rules.QueryParamFilter>) {
         viewModelScope.launch { paramFilterRepo.importAllFilters(filters) }
@@ -313,7 +313,7 @@ class RulesViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    suspend fun exportQueryParamFilters(): List<net.chaosengine.linkrouter.rules.QueryParamFilter> = paramFilterRepo.all()
+    suspend fun exportQueryParamFilters(): List<net.chaosengine.linkrouter.rules.QueryParamFilter> = paramFilterRepo.all().filter { !it.isBuiltIn }
 
     fun importShortenerHosts(hosts: List<net.chaosengine.linkrouter.rules.ShortenerHost>) {
         viewModelScope.launch { shortenerRepo.importAllHosts(hosts) }
@@ -327,7 +327,7 @@ class RulesViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    suspend fun exportShortenerHosts(): List<net.chaosengine.linkrouter.rules.ShortenerHost> = shortenerRepo.all()
+    suspend fun exportShortenerHosts(): List<net.chaosengine.linkrouter.rules.ShortenerHost> = shortenerRepo.all().filter { !it.isBuiltIn }
 
     fun importHostRewrites(rewrites: List<net.chaosengine.linkrouter.rules.HostRewrite>) {
         viewModelScope.launch { hostRewriteRepo.importAll(rewrites) }
@@ -341,7 +341,7 @@ class RulesViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    suspend fun exportHostRewrites(): List<net.chaosengine.linkrouter.rules.HostRewrite> = hostRewriteRepo.all()
+    suspend fun exportHostRewrites(): List<net.chaosengine.linkrouter.rules.HostRewrite> = hostRewriteRepo.all().filter { !it.isBuiltIn }
 
     /**
      * Validate a host-rewrite rule's fields up front (pure, no save). Returns
