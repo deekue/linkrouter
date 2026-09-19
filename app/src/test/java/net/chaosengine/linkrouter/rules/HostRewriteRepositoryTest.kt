@@ -170,6 +170,45 @@ class HostRewriteRepositoryTest {
     }
 
     @Test
+    fun importAll_import_priorityCollidesWithBuiltin_preservesBuiltins() = runBlocking {
+        // Seed 5 built-ins. Sequential inserts get max+1 priorities, so these
+        // land on priorities 1..5.
+        repeat(5) { i -> repo.insert(rewrite("builtin-$i.com", isBuiltIn = true)) }
+        assertEquals("precondition: 5 built-ins seeded", 5, repo.all().count { it.isBuiltIn })
+        assertEquals("precondition: priorities 1..5", (1..5).toList(), repo.all().filter { it.isBuiltIn }.map { it.priority }.sorted())
+
+        // Import 5 user rows. On the old code their auto-assigned priorities
+        // (5..1) overlap the built-ins' and REPLACE deletes the built-ins.
+        repo.importAll(
+            listOf(
+                rewrite("user-1.com", targetHost = "t1.com", enabled = true),
+                rewrite("user-2.com", targetHost = "t2.com", enabled = false),
+                rewrite("user-3.com", targetHost = "t3.com", enabled = true),
+                rewrite("user-4.com", targetHost = "t4.com", enabled = false),
+                rewrite("user-5.com", targetHost = "t5.com", enabled = true),
+            )
+        )
+
+        val all = repo.all()
+        // All 5 built-ins survive the collision, with their matchHosts intact.
+        val builtins = all.filter { it.isBuiltIn }
+        assertEquals("built-ins must survive priority collision", 5, builtins.size)
+        assertEquals(
+            (0..4).map { "builtin-$it.com" }.toSet(),
+            builtins.map { it.matchHost }.toSet(),
+        )
+        // All 5 imported user rows are present.
+        val users = all.filter { !it.isBuiltIn }
+        assertEquals("imported user rows must be present", 5, users.size)
+        assertEquals(
+            (1..5).map { "user-$it.com" }.toSet(),
+            users.map { it.matchHost }.toSet(),
+        )
+        // Priorities remain unique across the combined set (unique index holds).
+        assertEquals(10, all.map { it.priority }.toSet().size)
+    }
+
+    @Test
     fun importAll_emptyList_clearsUserRows_keepsBuiltIns() = runBlocking {
         repo.insert(rewrite("user.com", enabled = true))
         repo.insert(rewrite("builtin.com", isBuiltIn = true))
