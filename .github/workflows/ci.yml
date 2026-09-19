@@ -57,6 +57,8 @@ jobs:
               - 'gradle/**'
               - '.github/workflow/ci.yml'
               - 'config.env'
+              - '*.kts'
+              - '*.properties'
             docs:
               - 'docs/**'
               - '*.md'
