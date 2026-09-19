@@ -13,6 +13,13 @@ module:
   mounts:
     - source: assets
       target: assets
+
+    - source: data
+      target: data
+    - source: ../app
+      target: data/app
+      files:
+      - linkrouter-rules-examples.json
     - source: static
       target: static
     - source: ..

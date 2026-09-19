@@ -390,9 +390,16 @@ class DispatcherActivityTest {
         AppContainer.shortenerHostRepository = FakeShortenerRepo(listOf(
             net.chaosengine.linkrouter.rules.ShortenerHost(id = 1, name = "t.co", host = "t.co", enabled = true, isBuiltIn = true)
         ))
-        // Fast path: a 200 page whose body triggers an INTERSTITIAL (JS redirect).
-        AppContainer.shortenerFetcher = ShortenerResolver.Fetcher { _ ->
-            ShortenerResolver.HopResponse(200, null, "<html><script>window.location.replace('https://example.com/page')</script></html>")
+        // Fast path: the shortener 302-redirects to a DISTINCT 200 interstitial page
+        // whose body carries a JS redirect. The fast path settles on that interstitial
+        // page (result.url = the interstitial), which is what the WebView must resolve
+        // — NOT the original shortener URL (the bug this fix removes).
+        AppContainer.shortenerFetcher = ShortenerResolver.Fetcher { url ->
+            if (url == "https://t.co/abc") {
+                ShortenerResolver.HopResponse(302, "https://interstitial.t.co/go", "")
+            } else {
+                ShortenerResolver.HopResponse(200, null, "<html><script>window.location.replace('https://example.com/page')</script></html>")
+            }
         }
         val web = FakeWebResolver("https://example.com/page")
         AppContainer.shortenerWebResolver = web
@@ -401,9 +408,10 @@ class DispatcherActivityTest {
         val activity = build("https://t.co/abc")
         settle(activity)
 
-        // The web resolver was consulted (escalated on Interstitial).
+        // The web resolver was consulted (escalated on Interstitial) and received the
+        // INTERSTITIAL page the fast path settled on (result.url), not the shortener.
         assertTrue("web resolver should be consulted on interstitial", web.calls.isNotEmpty())
-        assertEquals("https://t.co/abc", web.calls.first())
+        assertEquals("https://interstitial.t.co/go", web.calls.first())
 
         val started = startedActivities(activity).single()
         assertEquals("org.example.browser", started.`package`)
@@ -418,9 +426,9 @@ class DispatcherActivityTest {
         AppContainer.shortenerHostRepository = FakeShortenerRepo(listOf(
             net.chaosengine.linkrouter.rules.ShortenerHost(id = 1, name = "t.co", host = "t.co", enabled = true, isBuiltIn = true)
         ))
-        // Fast path: a 200 page whose body triggers an INTERSTITIAL (meta refresh).
+        // Fast path: a 200 page whose body triggers an INTERSTITIAL (JS redirect).
         AppContainer.shortenerFetcher = ShortenerResolver.Fetcher { _ ->
-            ShortenerResolver.HopResponse(200, null, "<html><head><meta http-equiv=\"refresh\" content=\"0;url=https://example.com/page\"></head></html>")
+            ShortenerResolver.HopResponse(200, null, "<html><script>window.location.replace('https://example.com/page')</script></html>")
         }
         // Web resolver fails → returns null → degrade to the original URL (D6).
         val web = FakeWebResolver(null)
