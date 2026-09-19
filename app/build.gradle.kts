@@ -16,7 +16,7 @@ private fun releaseSecret(name: String): String? =
 
 android {
     namespace = "net.chaosengine.linkrouter"
-    compileSdk = 36
+    compileSdk = 37
     buildToolsVersion = "36.0.0"
 
     defaultConfig {
