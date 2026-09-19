@@ -321,9 +321,15 @@
     {
       "name": "Facebook share links",
       "host": "www.facebook.com",
-      "pathPrefix": "/share/r/",
+      "pathPrefix": "/share/",
       "enabled": false,
-      "isBuiltIn": true
+      "isBuiltIn": true,
+      "examples": [
+        {
+          "input": "https://www.facebook.com/share/r/19QBkCyWfA/",
+          "expectedOutput": "https://www.facebook.com/reel/1444921104160657/"
+        }
+      ]
     },
     {
       "name": "TikTok short links",
@@ -360,7 +366,10 @@
       "name": "bit.ly",
       "host": "bit.ly",
       "enabled": false,
-      "isBuiltIn": true
+      "isBuiltIn": true,
+      "examples" : [
+        { "input": "https://bitly.com/98K8eH", "expectedOutput": "https://www.youtube.com/watch?v=dQw4w9WgXcQ" }
+      ]
     },
     {
       "name": "t.co",
@@ -375,10 +384,22 @@
       "isBuiltIn": true
     },
     {
+      "name": "Facebook Me - on",
+      "host": "on.fb.me",
+      "enabled": false,
+      "isBuiltIn": true,
+      "examples" : [
+        { "input": "https://on.fb.me/1F1TcFX", "expectedOutput": "https://facebook.com/iheartradio" }
+      ]
+    },
+    {
       "name": "Google",
       "host": "share.google",
       "enabled": false,
-      "isBuiltIn": true
+      "isBuiltIn": true,
+      "examples" : [
+        { "input": "https://share.google/KkoDIfmzpmsc1W2AX", "expectedOutput": "https://www.youtube.com/shorts/IHVDpLvbiUw" }
+      ]
     }
   ],
   "hostRewrites": [
@@ -404,8 +425,8 @@
       "targetHost": "web.archive.org/web/*/",
       "examples": [
         {
-          "input": "http://geocities.com/SiliconValley/1234/index.html",
-          "expectedOutput": "http://web.archive.org/web/*/geocities.com/SiliconValley/1234/index.html"
+          "input": "http://geocities.com/SiliconValley/",
+          "expectedOutput": "http://web.archive.org/web/*/geocities.com/SiliconValley/"
         }
       ],
       "preserveHostInPath": true,
@@ -419,8 +440,8 @@
       "targetHost": "www.seetiktok.com",
       "examples": [
         {
-          "input": "https://www.tiktok.com/@tonononotonononon1/video/7590307485039283474",
-          "expectedOutput": "https://www.seetiktok.com/@tonononotonononon1/video/7590307485039283474"
+          "input": "https://www.tiktok.com/@pareidoliate/video/7685839018021473566",
+          "expectedOutput": "https://www.seetiktok.com/@pareidoliate/video/7685839018021473566"
         }
       ],
       "preserveHostInPath": false,
