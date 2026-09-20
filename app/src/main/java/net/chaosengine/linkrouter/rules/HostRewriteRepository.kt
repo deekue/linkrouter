@@ -100,7 +100,12 @@ open class HostRewriteRepository(private val db: LinkRouterDatabase) {
         }
     }
 
-    /** Replace the user's rewrites (import). Built-in rows are preserved. */
+    /**
+     * Replace the user's rewrites (import). Existing built-in rows are preserved
+     * (seeded via `seedBuiltInHostRewrites` on every open); imported built-in rows
+     * are matched to the already-seeded canonical row by `matchHost` and only their
+     * `enabled` flag is applied. Imported user rows get fresh positive ids.
+     */
     suspend fun importAll(rewrites: List<HostRewrite>) = db.withTransaction {
         dao.deleteNonBuiltIn()
         val userRewrites = rewrites.filter { !it.isBuiltIn }
@@ -111,6 +116,14 @@ open class HostRewriteRepository(private val db: LinkRouterDatabase) {
                     rw.copy(id = 0L, isBuiltIn = false, priority = base + (userRewrites.size - index))
                 )
             )
+        }
+        // Built-in entries: apply the imported enabled flag to the seeded canonical
+        // row only. No new row is created and no other field is touched; if there's
+        // no match the seeder recreates the canonical row on the next open.
+        val seeded = dao.builtIns()
+        rewrites.filter { it.isBuiltIn }.forEach { imp ->
+            seeded.firstOrNull { it.matchHost == imp.matchHost }
+                ?.let { dao.update(it.copy(enabled = imp.enabled)) }
         }
     }
 }

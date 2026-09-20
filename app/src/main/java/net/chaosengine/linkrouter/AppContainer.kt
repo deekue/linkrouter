@@ -142,16 +142,29 @@ object AppContainer {
             builtInQueryParamFilters.forEach { qpf ->
                 val enabledInt = if (qpf.enabled) 1 else 0
                 val hostLiteral = qpf.host?.let { "'$it'" } ?: "NULL"
-                val existsGuard = if (qpf.host == null) {
-                    "WHERE NOT EXISTS (SELECT 1 FROM query_param_filters WHERE param = '${qpf.param}' AND host IS NULL)"
+                // Natural-key clause shared by the NOT EXISTS guard and the
+                // self-heal UPDATE below.
+                val keyClause = if (qpf.host == null) {
+                    "param = '${qpf.param}' AND host IS NULL"
                 } else {
-                    "WHERE NOT EXISTS (SELECT 1 FROM query_param_filters WHERE param = '${qpf.param}' AND host = '${qpf.host}')"
+                    "param = '${qpf.param}' AND host = '${qpf.host}'"
                 }
+                val existsGuard = "WHERE NOT EXISTS (SELECT 1 FROM query_param_filters WHERE $keyClause)"
                 db.execSQL(
                     "INSERT OR IGNORE INTO query_param_filters " +
                         "(id, name, host, param, enabled, priority, isBuiltIn) " +
                         "SELECT ${qpf.id}, '${qpf.name}', $hostLiteral, '${qpf.param}', $enabledInt, ${qpf.priority}, 1 " +
                         "$existsGuard"
+                )
+                // Self-heal: a pre-existing user row under the canonical key
+                // blocked the INSERT above (a user row under a builtin's natural
+                // key suppresses the seed, and such rows would otherwise export
+                // as isBuiltIn=false). Flip the highest-priority such row to
+                // built-in; enabled/priority/name/host/param are left untouched.
+                db.execSQL(
+                    "UPDATE query_param_filters SET isBuiltIn = 1 " +
+                        "WHERE id = (SELECT id FROM query_param_filters WHERE $keyClause AND isBuiltIn = 0 " +
+                        "ORDER BY priority DESC LIMIT 1)"
                 )
             }
         } catch (e: Exception) {
