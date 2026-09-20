@@ -327,4 +327,21 @@ class HostRewriteRepositoryTest {
         assertEquals("seeding built-in under a different matchHost is preserved", 1, all.count { it.isBuiltIn })
         assertEquals("seeded-elsewhere.com", all.single { it.isBuiltIn }.matchHost)
     }
+
+    @Test
+    fun all_includesBuiltinsAndUsers_preservesEnabled_forExport() = runBlocking {
+        // Built-in seeded disabled (`enabled = false`); user rewrite enabled.
+        repo.insert(rewrite("builtinmatch.com", isBuiltIn = true, enabled = false))
+        repo.insert(rewrite("usermatch.com", enabled = true))
+
+        val all = repo.all()
+
+        assertEquals("a full list must include both rows", 2, all.size)
+        val builtIn = all.single { it.isBuiltIn }
+        assertEquals("builtinmatch.com", builtIn.matchHost)
+        assertEquals(false, builtIn.enabled)
+        val user = all.single { !it.isBuiltIn }
+        assertEquals("usermatch.com", user.matchHost)
+        assertEquals(true, user.enabled)
+    }
 }

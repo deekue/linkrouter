@@ -209,4 +209,21 @@ class ShortenerHostRepositoryTest {
         assertEquals("no user rows after empty import", 0, all.count { !it.isBuiltIn })
         assertEquals("built-in survives", 1, all.count { it.isBuiltIn })
     }
+
+    @Test
+    fun all_includesBuiltinsAndUsers_preservesEnabled_forExport() = runBlocking {
+        // Built-in seeded disabled (`enabled = false`); user host enabled.
+        repo.insert(host("builtin.sh", isBuiltIn = true, enabled = false))
+        repo.insert(host("user.sh", enabled = true))
+
+        val all = repo.all()
+
+        assertEquals("a full list must include both rows", 2, all.size)
+        val builtIn = all.single { it.isBuiltIn }
+        assertEquals("builtin.sh", builtIn.host)
+        assertEquals(false, builtIn.enabled)
+        val user = all.single { !it.isBuiltIn }
+        assertEquals("user.sh", user.host)
+        assertEquals(true, user.enabled)
+    }
 }

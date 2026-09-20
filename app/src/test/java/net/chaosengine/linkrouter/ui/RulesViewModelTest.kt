@@ -277,58 +277,84 @@ class RulesViewModelTest {
         assertNull(vm.rows.single().browser)
     }
 
-    // --- Export excludes built-ins -------------------------------------------------
+    // --- Export includes built-ins -------------------------------------------------
     // Every sub-section (formats / query-param filters / shortener hosts /
     // host rewrites) stores built-in rows alongside the user's. The four export
-    // functions must exclude built-ins from the serialized set while keeping all
-    // user rows. `exportRules` (base rules) is deliberately untouched — Rules
-    // have no `isBuiltIn` flag.
+    // functions must return ALL rows — built-ins included — carrying each row's
+    // real `enabled` value and `isBuiltIn` flag. This way a backup round-trips
+    // the seeded entries (so they can be re-enabled on import) even when the
+    // user has added no entries of their own. `exportRules` (base rules) is
+    // deliberately untouched — Rules have no `isBuiltIn` flag.
 
     @Test
-    fun `exportFormats_excludes_builtins_includes_users`() = runBlocking {
+    fun `exportFormats_includes_builtins_and_users_with_enabled_preserved`() = runBlocking {
         val vm = RulesViewModel(app())
 
         val exported = vm.exportFormats()
 
-        assertEquals(1, exported.size)
-        val row = exported.single()
-        assertEquals(false, row.isBuiltIn)
-        assertEquals("userfmt.com", row.pattern)
+        assertEquals(2, exported.size)
+        // Use `pattern` (the domain/identity field, matching the other three
+        // sub-section tests) for the membership check — `name` is a user-editable
+        // display label (BUILT_IN_GOOGLE.name is "Google" but its pattern is
+        // "google.com/url"; the seeded user row has name "UserFmt" but pattern
+        // "userfmt.com").
+        assertEquals(setOf("userfmt.com", "google.com/url"), exported.map { it.pattern }.toSet())
+        // Built-in row is present, flagged, and keeps its `enabled` state.
+        val builtIn = exported.single { it.isBuiltIn }
+        assertTrue(builtIn.enabled)
+        // User row is present, not flagged, and keeps its `enabled` state.
+        val user = exported.single { !it.isBuiltIn }
+        assertEquals("userfmt.com", user.pattern)
+        assertTrue(user.enabled)
     }
 
     @Test
-    fun `exportQueryParamFilters_excludes_builtins_includes_users`() = runBlocking {
+    fun `exportQueryParamFilters_includes_builtins_and_users_with_enabled_preserved`() = runBlocking {
         val vm = RulesViewModel(app())
 
         val exported = vm.exportQueryParamFilters()
 
-        assertEquals(1, exported.size)
-        val row = exported.single()
-        assertEquals(false, row.isBuiltIn)
-        assertEquals("user_param", row.param)
+        assertEquals(2, exported.size)
+        assertEquals(setOf("user_param", "builtin_param"), exported.map { it.param }.toSet())
+        val builtIn = exported.single { it.isBuiltIn }
+        assertEquals("builtin_param", builtIn.param)
+        assertTrue(builtIn.enabled)
+        val user = exported.single { !it.isBuiltIn }
+        assertEquals("user_param", user.param)
+        assertTrue(user.enabled)
     }
 
     @Test
-    fun `exportShortenerHosts_excludes_builtins_includes_users`() = runBlocking {
+    fun `exportShortenerHosts_includes_builtins_and_users_with_enabled_preserved`() = runBlocking {
         val vm = RulesViewModel(app())
 
         val exported = vm.exportShortenerHosts()
 
-        assertEquals(1, exported.size)
-        val row = exported.single()
-        assertEquals(false, row.isBuiltIn)
-        assertEquals("user.sh", row.host)
+        assertEquals(2, exported.size)
+        assertEquals(setOf("user.sh", "builtin.sh"), exported.map { it.host }.toSet())
+        // The built-in was seeded disabled (`enabled = false`) and that state must survive.
+        val builtIn = exported.single { it.isBuiltIn }
+        assertEquals("builtin.sh", builtIn.host)
+        assertFalse(builtIn.enabled)
+        val user = exported.single { !it.isBuiltIn }
+        assertEquals("user.sh", user.host)
+        assertTrue(user.enabled)
     }
 
     @Test
-    fun `exportHostRewrites_excludes_builtins_includes_users`() = runBlocking {
+    fun `exportHostRewrites_includes_builtins_and_users_with_enabled_preserved`() = runBlocking {
         val vm = RulesViewModel(app())
 
         val exported = vm.exportHostRewrites()
 
-        assertEquals(1, exported.size)
-        val row = exported.single()
-        assertEquals(false, row.isBuiltIn)
-        assertEquals("usermatch.com", row.matchHost)
+        assertEquals(2, exported.size)
+        assertEquals(setOf("usermatch.com", "builtinmatch.com"), exported.map { it.matchHost }.toSet())
+        // The built-in defaults to enabled and its state must survive.
+        val builtIn = exported.single { it.isBuiltIn }
+        assertEquals("builtinmatch.com", builtIn.matchHost)
+        assertTrue(builtIn.enabled)
+        val user = exported.single { !it.isBuiltIn }
+        assertEquals("usermatch.com", user.matchHost)
+        assertTrue(user.enabled)
     }
 }

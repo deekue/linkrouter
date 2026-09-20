@@ -216,4 +216,22 @@ class RedirectFormatRepositoryTest {
 
         assertEquals(3, repo.count())
     }
+
+    @Test
+    fun all_includesBuiltinsAndUsers_preservesEnabled_forExport() = runBlocking {
+        repo.resetBuiltIn() // built-in Google format (enabled by seed)
+        // Disable the built-in so we can prove the *stored* enabled state is returned.
+        val builtinId = repo.all().single { it.isBuiltIn }.id
+        repo.setEnabled(builtinId, false)
+        repo.insert(fmt("userfmt.com", enabled = true))
+
+        val all = repo.all()
+
+        assertEquals("a full list must include both rows", 2, all.size)
+        val builtIn = all.single { it.isBuiltIn }
+        assertEquals(false, builtIn.enabled)
+        val user = all.single { !it.isBuiltIn }
+        assertEquals("userfmt.com", user.pattern)
+        assertEquals(true, user.enabled)
+    }
 }

@@ -316,4 +316,20 @@ class QueryParamFilterRepositoryTest {
         assertEquals("seeding built-in under a different key is preserved", 1, all.count { it.isBuiltIn })
         assertEquals("seeded_builtin_p", all.single { it.isBuiltIn }.param)
     }
+
+    @Test
+    fun all_includesBuiltinsAndUsers_preservesEnabled_forExport() = runBlocking {
+        repo.insert(filter("builtin_param", isBuiltIn = true, enabled = true))
+        repo.insert(filter("user_param", enabled = true))
+
+        val all = repo.all()
+
+        assertEquals("a full list must include both rows", 2, all.size)
+        val builtIn = all.single { it.isBuiltIn }
+        assertEquals("builtin_param", builtIn.param)
+        assertEquals(true, builtIn.enabled)
+        val user = all.single { !it.isBuiltIn }
+        assertEquals("user_param", user.param)
+        assertEquals(true, user.enabled)
+    }
 }
