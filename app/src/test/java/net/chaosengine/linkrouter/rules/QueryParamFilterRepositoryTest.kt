@@ -28,13 +28,14 @@ class QueryParamFilterRepositoryTest {
         name: String = "F",
         enabled: Boolean = false,
         isBuiltIn: Boolean = false,
+        priority: Int = 0,
     ) = QueryParamFilter(
         id = 0,
         name = name,
         host = host,
         param = param,
         enabled = enabled,
-        priority = 0,
+        priority = priority,
         isBuiltIn = isBuiltIn,
     )
 
@@ -182,21 +183,23 @@ class QueryParamFilterRepositoryTest {
         repo.insert(filter("old-user_param", enabled = true))
         repo.insert(filter("builtin_param", isBuiltIn = true, enabled = false))
 
-        // Import a fresh set containing users + an (imported) built-in.
+        // Import a fresh set containing users + a built-in whose natural key
+        // (param, host) matches the seeded one: only its `enabled` flag is applied.
         repo.importAllFilters(
             listOf(
                 filter("new-a_param", enabled = true),
                 filter("new-b_param", host = "scop.example.com", enabled = false),
-                filter("builtin_param", isBuiltIn = true, enabled = true), // imported built-in must be dropped
+                filter("builtin_param", isBuiltIn = true, enabled = true),
             )
         )
 
         val all = repo.all()
         // The old user filter is gone; the two new user filters remain.
         assertEquals("imported user rows", setOf("new-a_param", "new-b_param"), all.filter { !it.isBuiltIn }.map { it.param }.toSet())
-        // Built-in survived and kept its seeded (disabled) state — the imported built-in was dropped.
+        // The single built-in row survived the import; the import matched it by
+        // natural key and applied its enabled flag.
         assertEquals("built-in must be preserved", 1, all.count { it.isBuiltIn })
-        assertEquals(false, all.single { it.isBuiltIn }.enabled)
+        assertEquals("imported built-in enabled flag is applied", true, all.single { it.isBuiltIn }.enabled)
     }
 
     @Test
@@ -209,5 +212,124 @@ class QueryParamFilterRepositoryTest {
         val all = repo.all()
         assertEquals("no user rows after empty import", 0, all.count { !it.isBuiltIn })
         assertEquals("built-in survives", 1, all.count { it.isBuiltIn })
+    }
+
+    @Test
+    fun importAll_userEntries_replaceUserRows_keepsBuiltins() = runBlocking {
+        // Pre-existing state: one built-in (canonical seed) + one user row.
+        repo.insert(filter("builtin_p", isBuiltIn = true, enabled = false))
+        repo.insert(filter("existing-user_param", enabled = true))
+        assertEquals(1, repo.all().count { it.isBuiltIn })
+        assertEquals(1, repo.all().count { !it.isBuiltIn })
+
+        // Import two fresh user entries (the prior user row must be replaced).
+        repo.importAllFilters(
+            listOf(
+                filter("u1_param", enabled = true),
+                filter("u2_param", enabled = false),
+            )
+        )
+
+        val all = repo.all()
+        val users = all.filter { !it.isBuiltIn }
+        val builtins = all.filter { it.isBuiltIn }
+
+        // Old user row replaced; the two imported user rows are present in list order
+        // (top of the list = highest priority = listed first by all()).
+        assertEquals("imported user rows present", setOf("u1_param", "u2_param"), users.map { it.param }.toSet())
+        assertEquals("old user row is replaced", 0, users.count { it.param == "existing-user_param" })
+        assertEquals("list order is preserved (top first)", listOf("u1_param", "u2_param"), users.map { it.param })
+        users.forEach {
+            assertTrue("imported user row must have a fresh, positive id", it.id > 0)
+            assertEquals("imported user row is not a built-in", false, it.isBuiltIn)
+        }
+
+        // The seeded built-in survived the import, untouched.
+        assertEquals("built-in must be preserved", 1, builtins.size)
+        val b = builtins.single()
+        assertEquals(true, b.isBuiltIn)
+        assertEquals("builtin_p", b.param)
+    }
+
+    @Test
+    fun importAll_builtinEntry_setsOnlyEnabled_noNewRow_noOtherFieldChange() = runBlocking {
+        // Seed the canonical built-in row with a distinctive name, a real priority
+        // (assigned by insert on an empty table => 1), and enabled=false.
+        repo.insert(filter("_t", host = "tiktok.com", name = "seeded-name", isBuiltIn = true, enabled = false))
+
+        val before = repo.all().single { it.param == "_t" && it.host == "tiktok.com" }
+        assertTrue("precondition: seeded built-in present", before.isBuiltIn)
+        assertEquals(false, before.enabled)
+        assertEquals("seeded-name", before.name)
+        val beforeCount = repo.count()
+
+        // Import a built-in entry with the SAME natural key (param, host) but a
+        // different name/priority/enabled. Only `enabled` may be applied.
+        repo.importAllFilters(
+            listOf(
+                filter("_t", host = "tiktok.com", name = "imported-name", enabled = true, priority = 99, isBuiltIn = true),
+            )
+        )
+
+        val all = repo.all()
+        val matched = all.single { it.param == "_t" && it.host == "tiktok.com" }
+
+        assertEquals("no new row is created — total count unchanged", beforeCount, all.size)
+        assertEquals("enabled flag is the only applied field", true, matched.enabled)
+        assertEquals("id is unchanged", before.id, matched.id)
+        assertEquals("param is unchanged", before.param, matched.param)
+        assertEquals("host is unchanged", before.host, matched.host)
+        assertEquals("name is unchanged (imported name ignored)", "seeded-name", matched.name)
+        assertEquals("priority is unchanged (imported priority ignored)", before.priority, matched.priority)
+    }
+
+    @Test
+    fun importAll_builtinEntry_noSeededMatch_ignored() = runBlocking {
+        // Seed a built-in under a DIFFERENT natural key, so the imported built-in
+        // key matches nothing.
+        repo.insert(filter("seeded_builtin_p", host = "elsewhere.com", isBuiltIn = true, enabled = false))
+        val beforeCount = repo.count()
+
+        // Import a built-in entry whose (param, host) matches no seeded row, plus a
+        // user entry that must still be inserted.
+        repo.importAllFilters(
+            listOf(
+                filter("_z", host = "unseen.com", name = "imported", enabled = true, isBuiltIn = true),
+                filter("user1_param", enabled = true),
+            )
+        )
+
+        val all = repo.all()
+        assertEquals(
+            "imported built-in with no seeded match is ignored — no new row",
+            0,
+            all.count { it.param == "_z" && it.host == "unseen.com" },
+        )
+        assertEquals("imported built-in with no seeded match is ignored — total count grew only by the user row", beforeCount + 1, all.size)
+
+        // The user entry in the same import is still inserted correctly.
+        val user = all.single { !it.isBuiltIn }
+        assertEquals("user1_param", user.param)
+        assertTrue("imported user row has a fresh, positive id", user.id > 0)
+
+        // The pre-existing (different-key) built-in survived.
+        assertEquals("seeding built-in under a different key is preserved", 1, all.count { it.isBuiltIn })
+        assertEquals("seeded_builtin_p", all.single { it.isBuiltIn }.param)
+    }
+
+    @Test
+    fun all_includesBuiltinsAndUsers_preservesEnabled_forExport() = runBlocking {
+        repo.insert(filter("builtin_param", isBuiltIn = true, enabled = true))
+        repo.insert(filter("user_param", enabled = true))
+
+        val all = repo.all()
+
+        assertEquals("a full list must include both rows", 2, all.size)
+        val builtIn = all.single { it.isBuiltIn }
+        assertEquals("builtin_param", builtIn.param)
+        assertEquals(true, builtIn.enabled)
+        val user = all.single { !it.isBuiltIn }
+        assertEquals("user_param", user.param)
+        assertEquals(true, user.enabled)
     }
 }

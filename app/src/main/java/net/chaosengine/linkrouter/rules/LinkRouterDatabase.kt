@@ -173,6 +173,17 @@ abstract class LinkRouterDatabase : RoomDatabase() {
                             "SELECT ${hr.id}, '${hr.matchHost}', '${hr.matchType.name}', '${hr.kind.name}', '${hr.targetHost}', $preserveInt, $enabledInt, ${hr.priority}, 1 " +
                             "WHERE NOT EXISTS (SELECT 1 FROM host_rewrites WHERE matchHost = '${hr.matchHost}')"
                     )
+                    // Self-heal: a pre-existing user row under the same matchHost
+                    // blocked the INSERT above (a user row under a builtin's natural
+                    // key suppresses the seed, and such rows would otherwise export
+                    // as isBuiltIn=false). Flip the highest-priority such row to
+                    // built-in; enabled/priority and the other fields are left
+                    // untouched.
+                    db.execSQL(
+                        "UPDATE host_rewrites SET isBuiltIn = 1 " +
+                            "WHERE id = (SELECT id FROM host_rewrites WHERE matchHost = '${hr.matchHost}' AND isBuiltIn = 0 " +
+                            "ORDER BY priority DESC LIMIT 1)"
+                    )
                 }
             } catch (e: Exception) {
                 // Defensive: never let seeding take a migration or app open down.

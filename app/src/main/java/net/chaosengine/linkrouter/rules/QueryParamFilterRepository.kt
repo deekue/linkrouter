@@ -70,7 +70,8 @@ open class QueryParamFilterRepository(private val db: LinkRouterDatabase) {
     /**
      * Replace the user's filters (import). Existing built-in rows are preserved
      * (seeded by [net.chaosengine.linkrouter.AppContainer] on every open); imported
-     * built-in rows are dropped since they are not canonical. Imported user
+     * built-in rows are matched to the already-seeded canonical row by natural key
+     * `(param, host)` and only their `enabled` flag is applied. Imported user
      * rows get fresh positive ids. Mirrors [RedirectFormatRepository.importAllFormats].
      */
     suspend fun importAllFilters(filters: List<QueryParamFilter>) = db.withTransaction {
@@ -83,6 +84,14 @@ open class QueryParamFilterRepository(private val db: LinkRouterDatabase) {
                     filter.copy(id = 0L, isBuiltIn = false, priority = priority)
                 )
             )
+        }
+        // Built-in entries: apply the imported enabled flag to the seeded canonical
+        // row only. No new row is created and no other field is touched; if there's
+        // no match the seeder recreates the canonical row on the next open.
+        val seeded = dao.builtIns()
+        filters.filter { it.isBuiltIn }.forEach { imp ->
+            seeded.firstOrNull { it.param == imp.param && it.host == imp.host }
+                ?.let { dao.update(it.copy(enabled = imp.enabled)) }
         }
     }
 }

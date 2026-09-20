@@ -219,4 +219,129 @@ class HostRewriteRepositoryTest {
         assertEquals("no user rows after empty import", 0, all.count { !it.isBuiltIn })
         assertEquals("built-in survives", 1, all.count { it.isBuiltIn })
     }
+
+    @Test
+    fun importAll_userEntries_replaceUserRows_keepsBuiltins() = runBlocking {
+        // Pre-existing state: one built-in (canonical seed) + one user rewrite.
+        repo.insert(rewrite("builtin-nytimes.com", targetHost = "archive.md", isBuiltIn = true, enabled = false))
+        repo.insert(rewrite("existing-user.com", enabled = true))
+        assertEquals(1, repo.all().count { it.isBuiltIn })
+        assertEquals(1, repo.all().count { !it.isBuiltIn })
+
+        // Import two fresh user rewrites (the prior user row must be replaced).
+        repo.importAll(
+            listOf(
+                rewrite("u1.com", targetHost = "t1.com", enabled = true),
+                rewrite("u2.com", targetHost = "t2.com", enabled = false),
+            )
+        )
+
+        val all = repo.all()
+        val users = all.filter { !it.isBuiltIn }
+        val builtins = all.filter { it.isBuiltIn }
+
+        // Old user rewrite replaced; the two imported user rewrites are present in
+        // list order (top of the list = highest priority = listed first by all()).
+        assertEquals("imported user rows present", setOf("u1.com", "u2.com"), users.map { it.matchHost }.toSet())
+        assertEquals("old user row is replaced", 0, users.count { it.matchHost == "existing-user.com" })
+        assertEquals("list order is preserved (top first)", listOf("u1.com", "u2.com"), users.map { it.matchHost })
+        users.forEach {
+            assertTrue("imported user row must have a fresh, positive id", it.id > 0)
+            assertEquals("imported user row is not a built-in", false, it.isBuiltIn)
+        }
+
+        // The seeded built-in survived the import, untouched.
+        assertEquals("built-in must be preserved", 1, builtins.size)
+        val b = builtins.single()
+        assertEquals(true, b.isBuiltIn)
+        assertEquals("builtin-nytimes.com", b.matchHost)
+        assertEquals("archive.md", b.targetHost)
+    }
+
+    @Test
+    fun importAll_builtinEntry_setsOnlyEnabled_noNewRow() = runBlocking {
+        // Seed the canonical built-in rewrite under matchHost "nytimes.com" with a
+        // distinctive target/kind and enabled=false.
+        repo.insert(
+            rewrite(
+                matchHost = "nytimes.com",
+                targetHost = "archive.md",
+                kind = RewriteKind.HOST_SWAP,
+                isBuiltIn = true,
+                enabled = false,
+            )
+        )
+
+        val before = repo.all().single { it.matchHost == "nytimes.com" }
+        assertTrue("precondition: seeded built-in present", before.isBuiltIn)
+        assertEquals(false, before.enabled)
+        val beforeCount = repo.count()
+
+        // Import a built-in entry with the SAME matchHost but a different
+        // targetHost/kind/enabled. Only `enabled` may be applied.
+        repo.importAll(
+            listOf(
+                rewrite(
+                    matchHost = "nytimes.com",
+                    targetHost = "imported-target.com",
+                    kind = RewriteKind.PATH_PREFIX_REWRITE,
+                    enabled = true,
+                    isBuiltIn = true,
+                ),
+            )
+        )
+
+        val all = repo.all()
+        val matched = all.single { it.matchHost == "nytimes.com" }
+
+        assertEquals("no new row is created — total count unchanged", beforeCount, all.size)
+        assertEquals("enabled flag is the only applied field", true, matched.enabled)
+        assertEquals("id is unchanged", before.id, matched.id)
+        assertEquals("targetHost is unchanged (imported target ignored)", "archive.md", matched.targetHost)
+        assertEquals("kind is unchanged (imported kind ignored)", RewriteKind.HOST_SWAP, matched.kind)
+    }
+
+    @Test
+    fun importAll_builtinEntry_noSeededMatch_ignored() = runBlocking {
+        // Seed a built-in under a DIFFERENT matchHost, so the imported built-in
+        // key matches nothing.
+        repo.insert(rewrite("seeded-elsewhere.com", targetHost = "seed-target.com", isBuiltIn = true, enabled = false))
+        val beforeCount = repo.count()
+
+        // Import a built-in entry whose matchHost matches no seeded row.
+        repo.importAll(
+            listOf(
+                rewrite("unseen.com", targetHost = "x.com", enabled = true, isBuiltIn = true),
+            )
+        )
+
+        val all = repo.all()
+        assertEquals(
+            "imported built-in with no seeded match is ignored — no new row",
+            0,
+            all.count { it.matchHost == "unseen.com" },
+        )
+        assertEquals("imported built-in with no seeded match is ignored — total count unchanged", beforeCount, all.size)
+
+        // The pre-existing (different-key) built-in survived.
+        assertEquals("seeding built-in under a different matchHost is preserved", 1, all.count { it.isBuiltIn })
+        assertEquals("seeded-elsewhere.com", all.single { it.isBuiltIn }.matchHost)
+    }
+
+    @Test
+    fun all_includesBuiltinsAndUsers_preservesEnabled_forExport() = runBlocking {
+        // Built-in seeded disabled (`enabled = false`); user rewrite enabled.
+        repo.insert(rewrite("builtinmatch.com", isBuiltIn = true, enabled = false))
+        repo.insert(rewrite("usermatch.com", enabled = true))
+
+        val all = repo.all()
+
+        assertEquals("a full list must include both rows", 2, all.size)
+        val builtIn = all.single { it.isBuiltIn }
+        assertEquals("builtinmatch.com", builtIn.matchHost)
+        assertEquals(false, builtIn.enabled)
+        val user = all.single { !it.isBuiltIn }
+        assertEquals("usermatch.com", user.matchHost)
+        assertEquals(true, user.enabled)
+    }
 }

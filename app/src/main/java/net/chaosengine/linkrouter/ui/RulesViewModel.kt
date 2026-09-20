@@ -299,7 +299,10 @@ class RulesViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    suspend fun exportFormats(): List<RedirectFormat> = fmtRepo.all().filter { !it.isBuiltIn }
+    // Export includes built-in rows (with their real `enabled`/`isBuiltIn`) so a
+    // round-trip backup preserves the seeded entries and they can be re-enabled
+    // on import — not just user-added rows.
+    suspend fun exportFormats(): List<RedirectFormat> = fmtRepo.all()
 
     fun importQueryParamFilters(filters: List<net.chaosengine.linkrouter.rules.QueryParamFilter>) {
         viewModelScope.launch { paramFilterRepo.importAllFilters(filters) }
@@ -313,7 +316,8 @@ class RulesViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    suspend fun exportQueryParamFilters(): List<net.chaosengine.linkrouter.rules.QueryParamFilter> = paramFilterRepo.all().filter { !it.isBuiltIn }
+    // Export includes built-in rows (with their real `enabled`/`isBuiltIn`); see [exportFormats].
+    suspend fun exportQueryParamFilters(): List<net.chaosengine.linkrouter.rules.QueryParamFilter> = paramFilterRepo.all()
 
     fun importShortenerHosts(hosts: List<net.chaosengine.linkrouter.rules.ShortenerHost>) {
         viewModelScope.launch { shortenerRepo.importAllHosts(hosts) }
@@ -327,7 +331,8 @@ class RulesViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    suspend fun exportShortenerHosts(): List<net.chaosengine.linkrouter.rules.ShortenerHost> = shortenerRepo.all().filter { !it.isBuiltIn }
+    // Export includes built-in rows (with their real `enabled`/`isBuiltIn`); see [exportFormats].
+    suspend fun exportShortenerHosts(): List<net.chaosengine.linkrouter.rules.ShortenerHost> = shortenerRepo.all()
 
     fun importHostRewrites(rewrites: List<net.chaosengine.linkrouter.rules.HostRewrite>) {
         viewModelScope.launch { hostRewriteRepo.importAll(rewrites) }
@@ -341,7 +346,8 @@ class RulesViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    suspend fun exportHostRewrites(): List<net.chaosengine.linkrouter.rules.HostRewrite> = hostRewriteRepo.all().filter { !it.isBuiltIn }
+    // Export includes built-in rows (with their real `enabled`/`isBuiltIn`); see [exportFormats].
+    suspend fun exportHostRewrites(): List<net.chaosengine.linkrouter.rules.HostRewrite> = hostRewriteRepo.all()
 
     /**
      * Validate a host-rewrite rule's fields up front (pure, no save). Returns
