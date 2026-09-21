@@ -17,6 +17,10 @@ A privacy-focused, rule-based URL router for Android: it intercepts `http`/`http
 - **Browser chooser with private-window support**: dispatches to installed browsers with per-browser private capability (Firefox real-private verified; Chrome opens normally + honest warning when private is requested but unsupported); built-in in-app WebView target (real private, no cross-app leak); system/OS-default/chooser/ask-and-remember fallback modes.
 - **JSON import/export** of rules, settings, shortener hosts, redirect formats, and param filters (local backup/restore, no sync).
 
+[Screenshots]({{< relref "screenshots" >}} "App screenshots") of the Rule, Redirect Format, Param Filter, Shortener Host and Settings screens as they appear in the app.
+
+The [URL Flow Chart]({{< relref "flow_chart" >}} "URL Flow Chart") shows the path a URL takes through the app.
+
 ## Privacy
 
 - **Local-only** rule and settings storage (Room, app-private storage). No URL history is ever persisted.
@@ -24,13 +28,13 @@ A privacy-focused, rule-based URL router for Android: it intercepts `http`/`http
 - **Only the `INTERNET` permission** is declared (a normal, install-granted permission), and it is exercised **only** if you enable the opt-in "shortener web resolution" feature for one or more hosts — all built-in shortener hosts ship disabled, so a default install makes zero network calls.
 - See [PRIVACY](repo/privacy) for the full privacy policy.
 
+## Testing
+
+[Feature Test Links]({{< relref "tests" >}} "Manual test links") — every rule, redirect format, param filter, shortener host and host-rewrite fixture from [app/linkrouter-rules-examples.json](https://github.com/deekue/linkrouter/blob/main/app/linkrouter-rules-examples.json), rendered with clickable inputs + expected outputs so you can verify the router end-to-end on a phone or tablet.
+
 ## License
 
 GNU GPL v3 — see [LICENSE](repo/LICENSE). This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License.
 
 ## Status
-
-[Feature Test Links]({{< relref "tests" >}} "Manual test links") — every rule, redirect format, param filter, shortener host and host-rewrite fixture from `app/linkrouter-rules-examples.json`, rendered with clickable inputs + expected outputs so you can verify the router end-to-end on a phone or tablet.
-
-[Screenshots]({{< relref "screenshots" >}} "App screenshots") — the rule, redirect format, param filter, shortener host and settings screens as they appear in the app.
 
