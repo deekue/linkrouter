@@ -174,28 +174,118 @@ class ShortenerHostRepositoryTest {
     }
 
     @Test
-    fun importAllHosts_replacesUserRows_preservesBuiltIns() = runBlocking {
-        // Pre-existing state: one user host + one built-in.
+    fun importAllHosts_replacesUserRows_appliesBuiltinEnabled() = runBlocking {
+        // Pre-existing state: one user host + one built-in (seeded disabled).
         repo.insert(host("old-user.com", enabled = true))
         repo.insert(host("t.co", isBuiltIn = true, enabled = false))
 
-        // Import a fresh set containing user + a (non-canonical) built-in.
+        // Import a fresh set containing user + a built-in whose natural key
+        // (`host`) matches the seeded one: only its `enabled` flag is applied.
         repo.importAllHosts(
             listOf(
                 host("new-a.com", enabled = true),
                 host("new-b.com", pathPrefix = "/x/", enabled = false),
-                host("t.co", isBuiltIn = true, enabled = true), // imported built-in must be dropped
+                host("t.co", isBuiltIn = true, enabled = true),
             )
         )
 
         val all = repo.all()
         // The old user host is gone; the two new user hosts remain.
         assertEquals("imported user rows", setOf("new-a.com", "new-b.com"), all.filter { !it.isBuiltIn }.map { it.host }.toSet())
-        // Built-in survived and kept its seeded (disabled) state — the imported built-in was dropped.
+        // The single built-in row survived the import; the import matched it by
+        // natural key and applied its enabled flag.
         assertEquals("built-in must be preserved", 1, all.count { it.isBuiltIn })
-        assertEquals(false, all.single { it.isBuiltIn }.enabled)
+        assertEquals("imported built-in enabled flag is applied", true, all.single { it.isBuiltIn }.enabled)
         // Imported user rows are not flagged built-in.
         assertTrue(all.none { !it.isBuiltIn && it.isBuiltIn })
+    }
+
+    @Test
+    fun importAllHosts_builtinEntry_setsOnlyEnabled_noNewRow_noOtherFieldChange() = runBlocking {
+        // Seed the canonical built-in row with a distinctive name, a real priority
+        // (assigned by insert on an empty table => 1), and enabled=false.
+        repo.insert(host("t.co", name = "seeded-name", pathPrefix = "/t/2", isBuiltIn = true, enabled = false))
+
+        val before = repo.all().single { it.host == "t.co" }
+        assertTrue("precondition: seeded built-in present", before.isBuiltIn)
+        assertEquals(false, before.enabled)
+        assertEquals("seeded-name", before.name)
+        val beforeCount = repo.count()
+
+        // Import a built-in entry with the SAME natural key (`host`) but a
+        // different name/prefix/enabled. Only `enabled` may be applied.
+        repo.importAllHosts(
+            listOf(
+                host("t.co", name = "imported-name", pathPrefix = "/other/", enabled = true, isBuiltIn = true),
+            )
+        )
+
+        val all = repo.all()
+        val matched = all.single { it.host == "t.co" }
+
+        assertEquals("no new row is created — total count unchanged", beforeCount, all.size)
+        assertEquals("enabled flag is the only applied field", true, matched.enabled)
+        assertEquals("id is unchanged", before.id, matched.id)
+        assertEquals("host is unchanged", before.host, matched.host)
+        assertEquals("name is unchanged (imported name ignored)", "seeded-name", matched.name)
+        assertEquals("pathPrefix is unchanged (imported prefix ignored)", "/t/2", matched.pathPrefix)
+    }
+
+    @Test
+    fun importAllHosts_builtinEntry_noSeededMatch_ignored() = runBlocking {
+        // Seed a built-in under a DIFFERENT host, so the imported built-in
+        // natural key matches nothing.
+        repo.insert(host("elsewhere.com", isBuiltIn = true, enabled = false))
+        val beforeCount = repo.count()
+
+        // Import a built-in entry whose `host` matches no seeded row, plus a
+        // user entry that must still be inserted.
+        repo.importAllHosts(
+            listOf(
+                host("unseen.com", name = "imported", enabled = true, isBuiltIn = true),
+                host("user1.com", enabled = true),
+            )
+        )
+
+        val all = repo.all()
+        assertEquals(
+            "imported built-in with no seeded match is ignored — no new row",
+            0,
+            all.count { it.host == "unseen.com" },
+        )
+        assertEquals("imported built-in with no seeded match is ignored — total count grew only by the user row", beforeCount + 1, all.size)
+
+        // The user entry in the same import is still inserted correctly.
+        val user = all.single { !it.isBuiltIn }
+        assertEquals("user1.com", user.host)
+        assertTrue("imported user row has a fresh, positive id", user.id > 0)
+
+        // The pre-existing (different-host) built-in survived.
+        assertEquals("seeding built-in under a different host is preserved", 1, all.count { it.isBuiltIn })
+        assertEquals("elsewhere.com", all.single { it.isBuiltIn }.host)
+        assertEquals(false, all.single { it.isBuiltIn }.enabled)
+    }
+
+    @Test
+    fun importAllHosts_multipleBuiltins_eachEnabledAppliedByHost() = runBlocking {
+        // Two canonical built-ins seeded in opposite states.
+        repo.insert(host("t.co", isBuiltIn = true, enabled = false))
+        repo.insert(host("bit.ly", isBuiltIn = true, enabled = true))
+
+        // Import flips t.co -> enabled and bit.ly -> disabled.
+        repo.importAllHosts(
+            listOf(
+                host("t.co", isBuiltIn = true, enabled = true),
+                host("bit.ly", isBuiltIn = true, enabled = false),
+                host("user.com", enabled = true),
+            )
+        )
+
+        val all = repo.all()
+        assertEquals("both built-ins are preserved", 2, all.count { it.isBuiltIn })
+        assertEquals("t.co is re-enabled by import", true, all.single { it.host == "t.co" }.enabled)
+        assertEquals("bit.ly is disabled by import", false, all.single { it.host == "bit.ly" }.enabled)
+        assertEquals("imported user row is present", true, all.any { !it.isBuiltIn && it.host == "user.com" })
     }
 
     @Test

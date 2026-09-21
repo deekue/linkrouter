@@ -69,8 +69,9 @@ open class ShortenerHostRepository(private val db: LinkRouterDatabase) {
     /**
      * Replace the user's hosts (import). Existing built-in rows are preserved
      * (seeded by [net.chaosengine.linkrouter.AppContainer] on every open); imported
-     * built-in rows are dropped since they are not canonical. Imported user rows
-     * get fresh positive ids. Mirrors [QueryParamFilterRepository.importAllFilters].
+     * built-in rows are matched to the already-seeded canonical row by natural key
+     * `host` and only their `enabled` flag is applied. Imported user rows get
+     * fresh positive ids. Mirrors [QueryParamFilterRepository.importAllFilters].
      */
     open suspend fun importAllHosts(hosts: List<ShortenerHost>) = db.withTransaction {
         dao.deleteNonBuiltIn()
@@ -82,6 +83,14 @@ open class ShortenerHostRepository(private val db: LinkRouterDatabase) {
                     host.copy(id = 0L, isBuiltIn = false, priority = priority)
                 )
             )
+        }
+        // Built-in entries: apply the imported enabled flag to the seeded canonical
+        // row only. No new row is created and no other field is touched; if there's
+        // no match the seeder recreates the canonical row on the next open.
+        val seeded = dao.builtIns()
+        hosts.filter { it.isBuiltIn }.forEach { imp ->
+            seeded.firstOrNull { it.host == imp.host }
+                ?.let { dao.update(it.copy(enabled = imp.enabled)) }
         }
     }
 }
