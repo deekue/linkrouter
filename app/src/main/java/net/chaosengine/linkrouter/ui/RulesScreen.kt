@@ -28,9 +28,11 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PrivateConnectivity
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Web
+import net.chaosengine.linkrouter.browsers.StopTarget
 import net.chaosengine.linkrouter.browsers.WebViewTarget
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
@@ -257,8 +259,17 @@ private fun RuleRowItem(
         // Browser icon
         Box(modifier = Modifier.size(40.dp), contentAlignment = Alignment.Center) {
             val isWebView = WebViewTarget.isWebView(rule.targetPackage)
-            val painter = if (isWebView) null else row.browser?.let { browserIcon(it) }
+            val isStop = StopTarget.isStop(rule.targetPackage)
+            // Built-in sentinels (WebView / Stop) are not installed apps, so
+            // their BrowserInfo carries no drawable — use a static icon.
+            val painter = if (isWebView || isStop) null else row.browser?.let { browserIcon(it) }
             when {
+                isStop -> Icon(
+                    Icons.Filled.Stop,
+                    contentDescription = StopTarget.LABEL,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(30.dp),
+                )
                 isWebView -> Icon(
                     Icons.Filled.Web,
                     contentDescription = WebViewTarget.LABEL,
