@@ -48,14 +48,18 @@ class RulesViewModel(app: Application) : AndroidViewModel(app) {
     val browsers by lazy { registry.browsers }
 
     /**
-     * All selectable rule targets: the built-in in-app WebView first, followed
-     * by the installed browsers. The WebView is a synthetic entry — it is not
-     * an installed app, so it is not part of [browsers].
+     * All selectable rule targets: the built-in in-app WebView and the
+     * built-in Stop action first, followed by the installed browsers. Both
+     * built-ins are synthetic entries — they are not installed apps, so they
+     * are not part of [browsers].
      */
     val targets: kotlinx.coroutines.flow.StateFlow<List<BrowserInfo>> by lazy {
         registry.browsers
             .map { installed: List<BrowserInfo> ->
-                listOf(net.chaosengine.linkrouter.browsers.WebViewTarget.browserInfo) + installed
+                listOf(
+                    net.chaosengine.linkrouter.browsers.WebViewTarget.browserInfo,
+                    net.chaosengine.linkrouter.browsers.StopTarget.browserInfo,
+                ) + installed
             }
             .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, emptyList())
     }
@@ -87,9 +91,12 @@ class RulesViewModel(app: Application) : AndroidViewModel(app) {
             // because the rules snapshot is read before browsers is populated.
             container.ruleRepository.observeOrdered()
                 .combine(registry.browsers) { rules, browsers ->
-                    // Include the synthetic WebView entry so its rules don't
-                    // show as "uninstalled" in the rule list.
-                    val installed = (listOf(net.chaosengine.linkrouter.browsers.WebViewTarget.browserInfo) + browsers)
+                    // Include the synthetic WebView and Stop entries so their
+                    // rules don't show as "uninstalled" in the rule list.
+                    val installed = (listOf(
+                        net.chaosengine.linkrouter.browsers.WebViewTarget.browserInfo,
+                        net.chaosengine.linkrouter.browsers.StopTarget.browserInfo,
+                    ) + browsers)
                         .associateBy { it.packageName }
                     rules.map { r ->
                         RuleRow(
