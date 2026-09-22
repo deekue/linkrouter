@@ -10,6 +10,7 @@ import net.chaosengine.linkrouter.BuildConfig
 import net.chaosengine.linkrouter.browsers.BrowserInfo
 import net.chaosengine.linkrouter.browsers.BrowserRegistry
 import net.chaosengine.linkrouter.browsers.StrategyTable
+import net.chaosengine.linkrouter.browsers.StopTarget
 import net.chaosengine.linkrouter.browsers.WebViewTarget
 import net.chaosengine.linkrouter.fallback.FallbackHandler
 import net.chaosengine.linkrouter.rules.HostRewriter
@@ -211,6 +212,11 @@ class DispatcherActivity : Activity() {
                         )
                     }
                 }
+            } else if (StopTarget.isStop(rule.targetPackage)) {
+                // Built-in "Stop" target — never opens the URL, just notifies.
+                // Intercepted BEFORE the registry (the sentinel package is
+                // deliberately non-resolvable), mirroring the WebView branch.
+                toast(getString(R.string.stopped_toast))
             } else {
                 val target = registry.resolveTarget(rule.targetPackage)
                 when {

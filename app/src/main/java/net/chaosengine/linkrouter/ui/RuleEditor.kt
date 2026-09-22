@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PrivateConnectivity
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Web
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -50,6 +51,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import net.chaosengine.linkrouter.browsers.BrowserInfo
+import net.chaosengine.linkrouter.browsers.StopTarget
 import net.chaosengine.linkrouter.browsers.StrategyTable
 import net.chaosengine.linkrouter.browsers.WebViewTarget
 import net.chaosengine.linkrouter.rules.MatchType
@@ -166,6 +168,7 @@ fun RuleEditor(
                         modifier = Modifier.weight(1f))
                     Switch(
                         checked = openMode == OpenMode.PRIVATE.name,
+                        enabled = !StopTarget.isStop(targetPkg), // Stop never opens anything
                         onCheckedChange = { openMode = if (it) OpenMode.PRIVATE.name else OpenMode.NORMAL.name },
                     )
                 }
@@ -268,7 +271,9 @@ fun RuleEditor(
                             type,
                             targetPkg,
                             selectedBrowser?.activity,
-                            OpenMode.valueOf(openMode),
+                            // Stop never opens anything, so a private flag is
+                            // meaningless — store NORMAL for Stop targets.
+                            if (StopTarget.isStop(targetPkg)) OpenMode.NORMAL else OpenMode.valueOf(openMode),
                         )
                     },
                 ) { Text("Route") }
@@ -355,9 +360,19 @@ private fun BrowserGrid(
                         contentAlignment = Alignment.Center,
                     ) {
                         val isWebView = WebViewTarget.isWebView(b.packageName)
-                        val painter = if (isWebView) null else browserIcon(b)
+                        val isStop = StopTarget.isStop(b.packageName)
+                        // Built-in sentinels (WebView / Stop) are not installed apps —
+                        // their BrowserInfo has no drawable; use a static icon.
+                        val painter = if (isWebView || isStop) null else browserIcon(b)
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            if (isWebView) {
+                            if (isStop) {
+                                Icon(
+                                    Icons.Filled.Stop,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(28.dp),
+                                )
+                            } else if (isWebView) {
                                 Icon(
                                     Icons.Filled.Web,
                                     contentDescription = null,
