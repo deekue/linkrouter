@@ -96,6 +96,9 @@
 
     <!-- Shared actions -->
     <string name="back">Back</string>
+    <string name="copy_url">Copy current URL</string>
+    <string name="copy_url_done">URL copied to clipboard</string>
+    <string name="copy_url_failed">Couldn\'t copy the URL (no page loaded)</string>
     <string name="edit">Edit</string>
     <string name="delete">Delete</string>
     <string name="save">Save</string>
