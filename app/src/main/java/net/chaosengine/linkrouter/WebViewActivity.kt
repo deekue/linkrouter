@@ -208,8 +208,19 @@ private fun WebViewScreen(
 
     /**
      * Show a Material3 Snackbar telling the user the site is trying to open an
-     * app (with its scheme), offering an "Open App" action. Dismissal is the
-     * built-in Snackbar behavior; the visible page is left untouched.
+     * app (with its scheme). It exposes TWO controls:
+     *  - an "Open App" action — launches the pending custom-scheme URI via the
+     *    `onOpenApp`/`launchCustomScheme` path only when the user taps it; and
+     *  - a visible dismiss "X" — dismisses the snackbar without launching anything.
+     *
+     * In Material3 1.3.0 (BOM 2024.09.03) the action button is driven by
+     * `actionLabel != null` and the dismiss button by `withDismissAction == true`
+     * — two independent composables, not a single shared right-side slot. Passing
+     * `actionLabel` alone therefore shows the action but NO close button; setting
+     * `withDismissAction = true` is what actually produces the visible dismiss "X".
+     * The existing `actionLabel != null` call already implies
+     * `duration = Indefinite` (no auto-dismiss). The visible WebView page is left
+     * untouched (its navigation was already consumed in `shouldOverrideUrlLoading`).
      */
     fun showOpenAppPrompt(uri: Uri) {
         val scheme = uri.scheme?.takeIf { it.isNotBlank() } ?: "this link"
@@ -217,6 +228,7 @@ private fun WebViewScreen(
             val result = snackbarHostState.showSnackbar(
                 message = context.getString(R.string.open_app_prompt, scheme),
                 actionLabel = context.getString(R.string.open_app),
+                withDismissAction = true,
             )
             if (result == SnackbarResult.ActionPerformed) {
                 onOpenApp(uri)
