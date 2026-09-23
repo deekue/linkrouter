@@ -4,12 +4,16 @@ import android.annotation.SuppressLint
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Bundle
 import android.webkit.CookieManager
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -28,6 +32,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -55,19 +60,59 @@ import kotlinx.coroutines.launch
  *
  * - JS + DOM storage enabled.
  * - All in-page http/https navigation stays in-app (`shouldOverrideUrlLoading`).
+ * - Non-http(s) custom-scheme redirects (e.g. `snssdk1233://`) are CONSUMED
+ *   (so they don't wipe the visible page) and surfaced as a Snackbar with an
+ *   "Open App" action that launches the scheme via `ACTION_VIEW`.
  * - Back button pops the WebView history before finishing.
  * - Top bar shows the current URL + a private indicator.
  * - "Copy current URL" action copies the live URL to the clipboard.
  */
 class WebViewActivity : ComponentActivity() {
 
+    private var isPrivate = false
+    private var webView: WebView? = null
+
     companion object {
         const val EXTRA_URL = "net.chaosengine.linkrouter.webview.EXTRA_URL"
         const val EXTRA_PRIVATE = "net.chaosengine.linkrouter.webview.EXTRA_PRIVATE"
     }
 
-    private var isPrivate = false
-    private var webView: WebView? = null
+    /**
+     * Launch a custom-scheme URI (e.g. `snssdk1233://...`) in the handling app,
+     * if one exists. Builds an `ACTION_VIEW` intent, verifies it resolves via
+     * `resolveActivity` before starting, and toasts when nothing handles the
+     * scheme. Best-effort — never crashes the WebView host.
+     */
+    private fun launchCustomScheme(uri: Uri) {
+        if (!ActivityLaunchGuard.canStart(this)) return
+        val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        val resolved = try {
+            packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
+        } catch (e: Exception) {
+            null
+        }
+        if (resolved == null) {
+            Toast.makeText(
+                this,
+                getString(R.string.open_app_unavailable),
+                Toast.LENGTH_SHORT,
+            ).show()
+            return
+        }
+        try {
+            startActivity(intent)
+        } catch (e: Exception) {
+            if (ActivityLaunchGuard.canStart(this)) {
+                Toast.makeText(
+                    this,
+                    getString(R.string.open_app_unavailable),
+                    Toast.LENGTH_SHORT,
+                ).show()
+            }
+        }
+    }
 
     @SuppressLint("SetJavaScriptEnabled")
     @androidx.compose.material3.ExperimentalMaterial3Api
@@ -89,6 +134,7 @@ class WebViewActivity : ComponentActivity() {
                     onWebViewCreated = { webView = it },
                     onBack = { webView?.goBack() },
                     onCopyUrl = { copyCurrentUrlToClipboard() },
+                    onOpenApp = { uri -> launchCustomScheme(uri) },
                     onClose = { finish() },
                 )
             }
@@ -143,11 +189,13 @@ private fun WebViewScreen(
     onWebViewCreated: (WebView) -> Unit,
     onBack: () -> Unit,
     onCopyUrl: () -> Boolean,
+    onOpenApp: (Uri) -> Unit,
     onClose: () -> Unit,
 ) {
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = remember { CoroutineScope(Dispatchers.Main.immediate) }
+
     var currentUrl by remember { mutableStateOf(initialUrl) }
     var canGoBack by remember { mutableStateOf(false) }
     var title by remember { mutableStateOf("") }
@@ -156,6 +204,24 @@ private fun WebViewScreen(
     // Consume the system back press to pop the WebView history first.
     BackHandler(enabled = canGoBack) {
         onBack()
+    }
+
+    /**
+     * Show a Material3 Snackbar telling the user the site is trying to open an
+     * app (with its scheme), offering an "Open App" action. Dismissal is the
+     * built-in Snackbar behavior; the visible page is left untouched.
+     */
+    fun showOpenAppPrompt(uri: Uri) {
+        val scheme = uri.scheme?.takeIf { it.isNotBlank() } ?: "this link"
+        scope.launch {
+            val result = snackbarHostState.showSnackbar(
+                message = context.getString(R.string.open_app_prompt, scheme),
+                actionLabel = context.getString(R.string.open_app),
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                onOpenApp(uri)
+            }
+        }
     }
 
     Scaffold(
@@ -238,11 +304,27 @@ private fun WebViewScreen(
                                 request: WebResourceRequest,
                             ): Boolean {
                                 val uri = request.url
-                                if (uri.scheme == "http" || uri.scheme == "https") {
+                                val scheme = uri.scheme?.lowercase()
+                                // In-page web navigation stays in-app.
+                                if (scheme == "http" || scheme == "https") {
                                     view.loadUrl(uri.toString())
                                     return true
                                 }
-                                return false
+                                // Schemes the WebView manages internally
+                                // (javascript: / about: / data: / blob:) must NOT be
+                                // offered as "open an app"; let the WebView handle them.
+                                if (scheme == "javascript" || scheme == "about" ||
+                                    scheme == "data" || scheme == "blob"
+                                ) {
+                                    return false
+                                }
+                                // Any other (custom) scheme — e.g. a site trying to
+                                // deep-link into an installed app (snssdk1233://).
+                                // CONSUME the navigation (return true) so the
+                                // WebView doesn't throw ERR_UNKNOWN_URL_SCHEME and
+                                // wipe the visible page, then prompt the user.
+                                showOpenAppPrompt(uri)
+                                return true
                             }
 
                             override fun onPageFinished(view: WebView, url: String) {
