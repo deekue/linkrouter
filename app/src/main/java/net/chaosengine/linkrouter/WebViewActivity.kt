@@ -1,6 +1,9 @@
 package net.chaosengine.linkrouter
 
 import android.annotation.SuppressLint
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.os.Bundle
 import android.webkit.CookieManager
 import android.webkit.WebChromeClient
@@ -17,11 +20,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.PrivateConnectivity
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -31,9 +37,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 /**
  * In-app WebView (DESIGN.md section 7).
@@ -47,6 +57,7 @@ import androidx.compose.ui.viewinterop.AndroidView
  * - All in-page http/https navigation stays in-app (`shouldOverrideUrlLoading`).
  * - Back button pops the WebView history before finishing.
  * - Top bar shows the current URL + a private indicator.
+ * - "Copy current URL" action copies the live URL to the clipboard.
  */
 class WebViewActivity : ComponentActivity() {
 
@@ -77,10 +88,30 @@ class WebViewActivity : ComponentActivity() {
                     isPrivate = isPrivate,
                     onWebViewCreated = { webView = it },
                     onBack = { webView?.goBack() },
+                    onCopyUrl = { copyCurrentUrlToClipboard() },
                     onClose = { finish() },
                 )
             }
         }
+    }
+
+    /**
+     * Copies the WebView's currently loaded URL to the clipboard.
+     *
+     * Returns `true` on success, or `false` when there is no page loaded yet so
+     * the caller can surface the appropriate feedback.
+     *
+     * [WebView.getUrl] returns a [java.net.URL] that is null when no page has
+     * loaded (e.g. `about:blank`), so we guard against it rather than crash.
+     * No runtime permission is required for writes, and we reach [ClipboardManager]
+     * via [Context.getSystemService] (not the deprecated `Activity` accessor).
+     * Called on the main thread while the app is in the foreground.
+     */
+    private fun copyCurrentUrlToClipboard(): Boolean {
+        val url = webView?.url ?: return false
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText("URL", url.toString()))
+        return true
     }
 
     override fun onDestroy() {
@@ -111,8 +142,12 @@ private fun WebViewScreen(
     isPrivate: Boolean,
     onWebViewCreated: (WebView) -> Unit,
     onBack: () -> Unit,
+    onCopyUrl: () -> Boolean,
     onClose: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = remember { CoroutineScope(Dispatchers.Main.immediate) }
     var currentUrl by remember { mutableStateOf(initialUrl) }
     var canGoBack by remember { mutableStateOf(false) }
     var title by remember { mutableStateOf("") }
@@ -162,6 +197,20 @@ private fun WebViewScreen(
                             modifier = Modifier.padding(end = 8.dp),
                         )
                     }
+                    IconButton(
+                        onClick = {
+                            scope.launch {
+                                snackbarHostState.showSnackbar(
+                                    context.getString(
+                                        if (onCopyUrl()) R.string.copy_url_done
+                                        else R.string.copy_url_failed
+                                    )
+                                )
+                            }
+                        },
+                    ) {
+                        Icon(Icons.Filled.Link, contentDescription = context.getString(R.string.copy_url))
+                    }
                     IconButton(onClick = onClose) {
                         Icon(Icons.Filled.Close, contentDescription = "Close")
                     }
@@ -171,6 +220,7 @@ private fun WebViewScreen(
                 ),
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             AndroidView(
