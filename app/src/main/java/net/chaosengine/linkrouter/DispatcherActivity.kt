@@ -46,6 +46,10 @@ class DispatcherActivity : Activity() {
     companion object {
         private const val TAG = "DispatcherActivity"
 
+        // Dedicated HostRewrite logcat tag (exact case) so the rewrite engine can be
+        // filtered in isolation: `adb logcat -s HostRewrite:V`.
+        private const val HOST_REWRITE_TAG = "HostRewrite"
+
         /**
          * Nested shortener resolution bound (redirector → shortener → final):
          * at most ONE shortener resolution may follow a redirector unwrap.
@@ -187,6 +191,11 @@ class DispatcherActivity : Activity() {
             // rewrite-then-strip. Like M9, this only shapes the launched URL;
             // rule matching above used the pre-rewrite matchUrl.
             val rewritten = HostRewriter.rewrite(launchUrl, hostRewrites)
+            if (rewritten != launchUrl) {
+                Log.i(HOST_REWRITE_TAG, "Rewrote URL: $launchUrl -> $rewritten")
+            } else {
+                Log.d(HOST_REWRITE_TAG, "No rewrite applied: $launchUrl")
+            }
 
             // M9: strip enabled tracking params from the URL we LAUNCH (never
             // from matchUrl — rule matching stays query-independent, DESIGN.md §6/M9).

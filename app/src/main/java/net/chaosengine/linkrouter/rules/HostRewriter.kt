@@ -32,11 +32,19 @@ object HostRewriter {
      * malformed (D6: never silently pretend, never crash on malformed rules).
      */
     fun rewrite(url: String, rules: List<HostRewrite>): String {
-        for (rule in rules) {
+        for ((index, rule) in rules.withIndex()) {
             if (!rule.enabled) continue
             val result = applyOne(url, rule) ?: continue
+            // JVM-safe diagnostic (no-op in pure-JVM unit tests): which rule
+            // matched and the transformation it applied. Same tag as the
+            // production call site (`HostRewrite`), so the whole flow is visible.
+            HostRewriteLog.i(
+                "match rule #$index id=${rule.id} matchHost=${rule.matchHost} " +
+                    "kind=${rule.kind} matchType=${rule.matchType}: $url -> $result"
+            )
             return result
         }
+        HostRewriteLog.d("no rule applied url=$url (rules=${rules.size})")
         return url
     }
 
