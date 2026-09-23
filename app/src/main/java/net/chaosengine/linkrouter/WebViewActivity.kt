@@ -162,7 +162,7 @@ class WebViewActivity : ComponentActivity() {
     private fun copyCurrentUrlToClipboard(): Boolean {
         val url = webView?.url ?: return false
         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        clipboard.setPrimaryClip(ClipData.newPlainText("URL", url.toString()))
+        clipboard.setPrimaryClip(ClipData.newPlainText("URL", url))
         return true
     }
 
