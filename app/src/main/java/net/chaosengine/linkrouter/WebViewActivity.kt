@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import android.webkit.CookieManager
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -67,6 +68,8 @@ import kotlinx.coroutines.launch
  * - Top bar shows the current URL + a private indicator.
  * - "Copy current URL" action copies the live URL to the clipboard.
  */
+private const val TAG = "WebViewActivity"
+
 class WebViewActivity : ComponentActivity() {
 
     private var isPrivate = false
@@ -94,6 +97,7 @@ class WebViewActivity : ComponentActivity() {
             null
         }
         if (resolved == null) {
+            Log.w(TAG, "No app found to handle custom-scheme URI: $uri")
             Toast.makeText(
                 this,
                 getString(R.string.open_app_unavailable),
@@ -102,8 +106,10 @@ class WebViewActivity : ComponentActivity() {
             return
         }
         try {
+            Log.i(TAG, "Launching custom-scheme URI in app: $uri")
             startActivity(intent)
         } catch (e: Exception) {
+            Log.e(TAG, "Failed to launch custom-scheme URI: $uri", e)
             if (ActivityLaunchGuard.canStart(this)) {
                 Toast.makeText(
                     this,
@@ -335,6 +341,10 @@ private fun WebViewScreen(
                                 // CONSUME the navigation (return true) so the
                                 // WebView doesn't throw ERR_UNKNOWN_URL_SCHEME and
                                 // wipe the visible page, then prompt the user.
+                                Log.i(
+                                    TAG,
+                                    "Intercepted non-web scheme redirect: $uri (scheme=${uri.scheme}); blocking navigation and prompting Open App",
+                                )
                                 showOpenAppPrompt(uri)
                                 return true
                             }
