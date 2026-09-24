@@ -452,11 +452,11 @@
       "matchHost": "twitter.com",
       "matchType": "EXACT_HOST",
       "kind": "HOST_SWAP",
-      "targetHost": "xcancel.com",
+      "targetHost": "flurbx.com",
       "examples": [
         {
           "input": "https://twitter.com/elmo/status/2068016008086872413",
-          "expectedOutput": "https://xcancel.com/elmo/status/2068016008086872413"
+          "expectedOutput": "https://flurbx.com/elmo/status/2068016008086872413"
         }
       ],
       "preserveHostInPath": false,
@@ -467,11 +467,11 @@
       "matchHost": "x.com",
       "matchType": "EXACT_HOST",
       "kind": "HOST_SWAP",
-      "targetHost": "xcancel.com",
+      "targetHost": "flurbx.com",
       "examples": [
         {
           "input": "https://x.com/elmo/status/2068016008086872413",
-          "expectedOutput": "https://xcancel.com/elmo/status/2068016008086872413"
+          "expectedOutput": "https://flurbx.com/elmo/status/2068016008086872413"
         }
       ],
       "preserveHostInPath": false,
