@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -100,12 +101,17 @@ class WebViewActivity : ComponentActivity() {
      * installed). Instead we ATTEMPT the launch and rely on
      * `ActivityNotFoundException`:
      *
-     *  1. `ACTION_VIEW` on the custom-scheme URI itself.
-     *  2. Fallback: `ACTION_VIEW` on the last HTTP(S) URL seen by the WebView
-     *     (apps like TikTok register intent filters for their https:// web
-     *     URLs but NOT for their own custom app scheme).
-     *  3. Only if both attempts throw do we log diagnostics of what the OS
-     *     *can* resolve for each URL and toast "no app found".
+      *  1. `ACTION_VIEW` on the custom-scheme URI itself.
+      *  2. Fallback: `ACTION_VIEW` on the last HTTP(S) URL seen by the WebView
+      *     (apps like TikTok register intent filters for their https:// web
+      *     URLs but NOT for their own custom app scheme).
+      *  3. Explicit component: if both implicit attempts throw but
+      *     `queryIntentActivities` still returns a `ResolveInfo`, launch that
+      *     exact component directly (observed with TikTok: the implicit intent
+      *     fails to match the activity filters, yet a resolvable component
+      *     exists).
+      *  4. Only if all attempts throw do we log diagnostics of what the OS
+      *     *can* resolve for each URL and toast "no app found".
      *
      * Best-effort — never crashes the WebView host.
      */
@@ -141,7 +147,15 @@ class WebViewActivity : ComponentActivity() {
             Log.w(TAG, "No remembered https URL available to fall back to")
         }
 
-        // 3) Neither attempt succeeded — diagnose what the OS reports it CAN
+        // 3) Explicit component: both implicit attempts failed, yet the OS may
+        //    still report a resolvable component (e.g. TikTok registers the
+        //    activity filters without matching the implicit intent). Launch it
+        //    directly by component to bypass implicit resolution.
+        if (launchByResolvedComponent(uri, fallbackUrl)) {
+            return
+        }
+
+        // 4) Neither attempt succeeded — diagnose what the OS reports it CAN
         //    resolve for each URL, then tell the user nothing handled the link.
         logUnresolvedHandlers(uri, fallbackUrl)
         Log.w(TAG, "No app found to handle custom-scheme URI: $uri (fallback=$fallbackUrl)")
@@ -150,6 +164,47 @@ class WebViewActivity : ComponentActivity() {
             getString(R.string.open_app_unavailable),
             Toast.LENGTH_SHORT,
         ).show()
+    }
+
+    /**
+     * Third-resort launch path: queries
+     * [PackageManager.queryIntentActivities] (MATCH_DEFAULT_ONLY) for BOTH the
+     * scheme URI and the https fallback URI, takes the first non-null
+     * [android.content.pm.ResolveInfo], and starts an EXPLICIT intent for that
+     * component.
+     *
+     * Needed for apps (e.g. TikTok / `com.zhiliaoapp.musically`) whose intent
+     * filters match `queryIntentActivities` but where the implicit
+     * `ACTION_VIEW` `startActivity` still throws `ActivityNotFoundException`.
+     *
+     * @return `true` when an explicit intent was started successfully.
+     */
+    private fun launchByResolvedComponent(uri: Uri, fallbackUrl: String?): Boolean {
+        val candidates = listOfNotNull(uri, fallbackUrl?.let(Uri::parse))
+        for (candidate in candidates) {
+            val resolveInfo: android.content.pm.ResolveInfo? = try {
+                packageManager.queryIntentActivities(
+                    Intent(Intent.ACTION_VIEW, candidate),
+                    PackageManager.MATCH_DEFAULT_ONLY,
+                ).firstOrNull()
+            } catch (e: Exception) {
+                Log.w(TAG, "queryIntentActivities failed for $candidate", e)
+                continue
+            }
+            val pkg = resolveInfo?.activityInfo?.packageName
+            val cls = resolveInfo?.activityInfo?.name
+            if (resolveInfo == null || pkg == null || cls == null) continue
+            val component = ComponentName(pkg, cls)
+            try {
+                Log.i(TAG, "Attempting explicit component launch: $component for $candidate")
+                startActivity(Intent(Intent.ACTION_VIEW, candidate).setComponent(component))
+                Log.i(TAG, "Launched via explicit component: $pkg/$cls for $candidate")
+                return true
+            } catch (e: Exception) {
+                Log.w(TAG, "Explicit component launch failed for $component (uri=$candidate)", e)
+            }
+        }
+        return false
     }
 
     /**
