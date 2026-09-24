@@ -1182,4 +1182,72 @@ class DispatcherActivityTest {
         assertTrue(isBrowserChooser(started))
         assertEquals(Uri.parse("https://t.co/abc"), started.getParcelableExtra(LinkRouter.EXTRA_URI))
     }
+
+    // --- amp cache unwrap ---
+
+    @Test
+    fun `amp cache url resolves to the unwrapped origin as the launch destination`() {
+        // No rule (or shortener/format) involved: the fallback chooser must
+        // carry the UNWRAPPED origin URL, NOT the AMP cache URL.
+        AppContainer.ruleRepository = FakeRepository(emptyList())
+        AppContainer.browserRegistry = FakeRegistry(context(), null)
+
+        val amp = "https://example-com.cdn.ampproject.org/c/s/example.com/news/story?id=42"
+        val activity = build(amp)
+        settle(activity)
+
+        val started = startedActivities(activity).single()
+        assertTrue(isBrowserChooser(started))
+        assertEquals(
+            "fallback must carry the unwrapped origin, not the AMP cache url",
+            Uri.parse("https://example.com/news/story?id=42"),
+            started.getParcelableExtra(LinkRouter.EXTRA_URI),
+        )
+    }
+
+    @Test
+    fun `amp cache url matches a rule on the origin host and launches the origin`() {
+        // Rule targets the ORIGIN host (example.com), not the cache host
+        // example-com.cdn.ampproject.org — the rule engine must resolve against
+        // the unwrapped origin.
+        AppContainer.ruleRepository = FakeRepository(listOf(rule("org.example.browser"))) // pattern example.com
+        AppContainer.browserRegistry = FakeRegistry(context(), browser("org.example.browser"))
+
+        val amp = "https://example-com.cdn.ampproject.org/c/s/example.com/news/story?id=42"
+        val activity = build(amp)
+        settle(activity)
+
+        val started = startedActivities(activity).single()
+        assertEquals("org.example.browser", started.`package`)
+        // The ORIGIN url must be launched (not the AMP cache url).
+        assertEquals(Uri.parse("https://example.com/news/story?id=42"), started.data)
+        assertTrue(started.getBooleanExtra(LinkRouter.EXTRA_HANDLED, false))
+    }
+
+    @Test
+    fun `host containing amp but not a cache url is not unwrapped and launches unchanged`() {
+        // amp.example.com is NOT a subdomain of a known cache domain → no unwrap.
+        // A rule on the exact host must launch the incoming url verbatim
+        // (no unwrap, no regression).
+        AppContainer.ruleRepository = FakeRepository(listOf(
+            Rule(
+                id = 1,
+                pattern = "amp.example.com",
+                matchType = net.chaosengine.linkrouter.rules.MatchType.EXACT_HOST,
+                targetPackage = "org.example.browser",
+                openMode = OpenMode.NORMAL,
+                enabled = true,
+                priority = 1,
+            )
+        ))
+        AppContainer.browserRegistry = FakeRegistry(context(), browser("org.example.browser"))
+
+        val activity = build("https://amp.example.com/page?id=42")
+        settle(activity)
+
+        val started = startedActivities(activity).single()
+        assertEquals("org.example.browser", started.`package`)
+        assertEquals(Uri.parse("https://amp.example.com/page?id=42"), started.data)
+        assertTrue(started.getBooleanExtra(LinkRouter.EXTRA_HANDLED, false))
+    }
 }

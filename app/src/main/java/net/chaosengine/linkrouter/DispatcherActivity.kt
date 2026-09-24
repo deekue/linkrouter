@@ -13,6 +13,7 @@ import net.chaosengine.linkrouter.browsers.StrategyTable
 import net.chaosengine.linkrouter.browsers.StopTarget
 import net.chaosengine.linkrouter.browsers.WebViewTarget
 import net.chaosengine.linkrouter.fallback.FallbackHandler
+import net.chaosengine.linkrouter.rules.AmpCacheUnwrapper
 import net.chaosengine.linkrouter.rules.HostRewriter
 import net.chaosengine.linkrouter.rules.QueryParamStripper
 import net.chaosengine.linkrouter.rules.RedirectResolver
@@ -49,6 +50,9 @@ class DispatcherActivity : Activity() {
         // Dedicated HostRewrite logcat tag (exact case) so the rewrite engine can be
         // filtered in isolation: `adb logcat -s HostRewrite:V`.
         private const val HOST_REWRITE_TAG = "HostRewrite"
+
+        // Dedicated AMP-cache-unwrap logcat tag (exact case): `adb logcat -s AmpCacheUnwrap:V`.
+        private const val AMP_UNWRAP_TAG = "AmpCacheUnwrap"
 
         /**
          * Nested shortener resolution bound (redirector → shortener → final):
@@ -153,6 +157,15 @@ class DispatcherActivity : Activity() {
             var finalUrl: String? = null
             var matchCandidate = original.toString()
 
+            // AMP cache unwrap: canonicalize an AMP cache URL (amp.to.xxx -> xxx)
+            // BEFORE shortener resolution and rule matching, so rules match the
+            // origin host/path. Log-only (consistent with the HostRewrite step).
+            val ampUnwrapped: String? = AmpCacheUnwrapper.unwrap(original.toString())
+            if (ampUnwrapped != null && ampUnwrapped != original.toString()) {
+                Log.i(AMP_UNWRAP_TAG, "Unwrapped AMP cache URL: $original -> $ampUnwrapped")
+                matchCandidate = ampUnwrapped
+            }
+
             // 2a — INCOMING shortener (identical behavior to before, now via the
             // shared helper so the nested path below has identical semantics).
             ShortenResolveLog.i("dispatch: resolving INCOMING shortener url=$matchCandidate")
@@ -182,9 +195,12 @@ class DispatcherActivity : Activity() {
             val matchParsed = RuleEngine.normalize(matchUrl) ?: parsed
             val rule: Rule? = RuleEngine.resolve(rules, matchParsed)
 
-            // Launch the shortener's final URL when resolved; otherwise honor the existing
-            // openRealDestination logic on the original wrapper.
-            val launchUrl = finalUrl ?: RedirectResolver.launchDestination(original.toString(), formats)
+            // Launch the shortener's final URL when resolved; else the unwrapped AMP
+            // origin when the incoming URL was an AMP cache; otherwise honor the
+            // existing openRealDestination logic on the original wrapper.
+            val launchUrl = finalUrl
+                ?: ampUnwrapped
+                ?: RedirectResolver.launchDestination(original.toString(), formats)
 
             // HOST REWRITE (P2): reshape the URL we LAUNCH via the first enabled
             // host-rewrite rule (top-priority first) BEFORE param stripping —

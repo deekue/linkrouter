@@ -31,6 +31,21 @@ class BuiltInExamplesTest {
     }
 
     @Test
+    fun builtInAmpCacheUnwrapExamples_areCorrect() {
+        // The AMP cache unwrap stage is a built-in that has no persistence model
+        // (it's always on), so its fixture is examples-only: each declared input
+        // must unwrap to the declared expectedOutput via AmpCacheUnwrapper.
+        for ((idx, ex) in builtInAmpCacheUnwrapExamples.withIndex()) {
+            val actual = AmpCacheUnwrapper.unwrap(ex.input)
+            assertEquals(
+                "AMP unwrap example #$idx (input=${ex.input})",
+                ex.expectedOutput,
+                actual,
+            )
+        }
+    }
+
+    @Test
     fun builtInParamFilterExamples_areCorrect() {
         val byParam = builtInQueryParamFilters.associateBy { it.param }
         for ((param, examples) in builtInParamFilterExamples) {
