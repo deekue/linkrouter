@@ -227,6 +227,28 @@ val generateBuiltIns = tasks.register("generateBuiltIns") {
         sb.appendLine(")")
         sb.appendLine()
 
+        // --- ampCacheUnwrap ---
+        // Built-in AMP cache URL unwrap stage (AmpCacheUnwrapper), which runs
+        // BEFORE shortener resolution. It has no persistence model (unlike the
+        // other sections above), so this fixture exists purely to surface
+        // examples: builtInAmpCacheUnwrapExamples feeds the unit test, the docs
+        // page and any example UI. Absent/empty array still emits valid code.
+        val amp = if (root.has("ampCacheUnwrap")) root.getJSONArray("ampCacheUnwrap") else org.json.JSONArray()
+        sb.appendLine("val builtInAmpCacheUnwrapExamples: List<RuleExample> = listOf(")
+        for (i in 0 until amp.length()) {
+            val o = amp.getJSONObject(i)
+            val ex = if (o.has("examples")) o.getJSONArray("examples") else org.json.JSONArray()
+            for (j in 0 until ex.length()) {
+                val e = ex.getJSONObject(j)
+                sb.appendLine("    RuleExample(")
+                sb.appendLine("        input = \"${esc(e.getString("input"))}\",")
+                sb.appendLine("        expectedOutput = \"${esc(e.getString("expectedOutput"))}\",")
+                sb.appendLine("    ),")
+            }
+        }
+        sb.appendLine(")")
+        sb.appendLine()
+
         // --- redirectFormats ---
         sb.appendLine("val builtInRedirectFormats: List<RedirectFormat> = listOf(")
         val rf = root.getJSONArray("redirectFormats")

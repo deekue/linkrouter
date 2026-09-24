@@ -36,6 +36,21 @@ Output shown in this page. The reliable workflow:
   </table>
   {{ end }}
 
+  {{ if $data.ampCacheUnwrap }}
+  <h3>AMP cache unwrap</h3>
+  <table>
+    <thead><tr><th>Name</th><th>Input</th><th>Expected Output</th></tr></thead>
+    <tbody>
+      {{ range $data.ampCacheUnwrap }}
+      {{ $nm := .name }}
+      {{ range .examples }}
+      <tr><td>{{ $nm }}</td><td><a href="{{ .input }}">{{ .input }}</a></td><td><code>{{ .expectedOutput }}</code></td></tr>
+      {{ end }}
+      {{ end }}
+    </tbody>
+  </table>
+  {{ end }}
+
   {{ if $data.redirectFormats }}
   <h3>Redirect formats</h3>
   <table>

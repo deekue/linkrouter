@@ -16,6 +16,16 @@
       ]
     }
   ],
+  "ampCacheUnwrap": [
+    {
+      "name": "AMP cache unwrap",
+      "examples": [
+        { "input": "https://example-com.cdn.ampproject.org/c/s/example.com/news/story?id=42", "expectedOutput": "https://example.com/news/story?id=42" }
+      ],
+      "enabled": true,
+      "isBuiltIn": true
+    }
+  ],
   "redirectFormats": [
     {
       "name": "Google www",
