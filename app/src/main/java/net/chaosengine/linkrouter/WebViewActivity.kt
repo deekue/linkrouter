@@ -1,6 +1,7 @@
 package net.chaosengine.linkrouter
 
 import android.annotation.SuppressLint
+import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -91,26 +92,34 @@ class WebViewActivity : ComponentActivity() {
 
     /**
      * Launch a custom-scheme URI (e.g. `snssdk1233://...`) in the handling app,
-     * if one exists. Builds an `ACTION_VIEW` intent, verifies it resolves via
-     * `resolveActivity` before starting.
+     * if one exists.
      *
-     * Many apps (TikTok included) register intent filters for their `https://`
-     * web URLs but NOT for their own custom app scheme, so the scheme intent can
-     * fail to resolve even with the app installed. When that happens we fall
-     * back to the last HTTP(S) URL seen by the WebView, which those apps DO
-     * handle. Only if neither resolves do we toast "no app found".
+     * `resolveActivity` is NOT consulted up front — it can return null even
+     * when the app actually handles the link (e.g. TikTok's `snssdk1340://`
+     * scheme, or its https:// deep links, failed resolution with the app
+     * installed). Instead we ATTEMPT the launch and rely on
+     * `ActivityNotFoundException`:
+     *
+     *  1. `ACTION_VIEW` on the custom-scheme URI itself.
+     *  2. Fallback: `ACTION_VIEW` on the last HTTP(S) URL seen by the WebView
+     *     (apps like TikTok register intent filters for their https:// web
+     *     URLs but NOT for their own custom app scheme).
+     *  3. Only if both attempts throw do we log diagnostics of what the OS
+     *     *can* resolve for each URL and toast "no app found".
+     *
      * Best-effort — never crashes the WebView host.
      */
     private fun launchCustomScheme(uri: Uri) {
         if (!ActivityLaunchGuard.canStart(this)) return
 
-        // 1) Preferred: the custom-scheme URI itself.
-        val schemeIntent = Intent(Intent.ACTION_VIEW, uri).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        if (resolves(schemeIntent)) {
-            startActivitySafely(schemeIntent, uri.toString())
+        // 1) Preferred: the custom-scheme URI itself — attempt directly.
+        try {
+            Log.i(TAG, "Attempting to launch custom-scheme URI: $uri")
+            startActivity(Intent(Intent.ACTION_VIEW, uri))
+            Log.i(TAG, "Custom-scheme URI launched successfully: $uri")
             return
+        } catch (e: ActivityNotFoundException) {
+            Log.w(TAG, "No activity handles custom-scheme URI: $uri", e)
         }
 
         // 2) Fallback: the last HTTP(S) URL seen by the WebView (apps like
@@ -118,23 +127,23 @@ class WebViewActivity : ComponentActivity() {
         val fallbackUrl = lastHttpsUrl
         if (fallbackUrl != null) {
             try {
-                val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse(fallbackUrl)).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                if (resolves(webIntent)) {
-                    Log.i(TAG, "Custom-scheme URI unresolved; launching https fallback URL: $fallbackUrl")
-                    startActivitySafely(webIntent, fallbackUrl)
-                    return
-                }
-                Log.w(TAG, "https fallback URL did not resolve either: $fallbackUrl")
+                val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse(fallbackUrl))
+                Log.i(TAG, "Attempting to launch https fallback URL: $fallbackUrl")
+                startActivity(webIntent)
+                Log.i(TAG, "https fallback URL launched successfully: $fallbackUrl")
+                return
+            } catch (e: ActivityNotFoundException) {
+                Log.w(TAG, "No activity handles https fallback URL: $fallbackUrl", e)
             } catch (e: Exception) {
-                Log.w(TAG, "https fallback URL is not a valid URI, skipping: $fallbackUrl", e)
+                Log.w(TAG, "https fallback URL is not a usable URI, skipping: $fallbackUrl", e)
             }
         } else {
             Log.w(TAG, "No remembered https URL available to fall back to")
         }
 
-        // 3) Neither resolved — nothing installed handles this link.
+        // 3) Neither attempt succeeded — diagnose what the OS reports it CAN
+        //    resolve for each URL, then tell the user nothing handled the link.
+        logUnresolvedHandlers(uri, fallbackUrl)
         Log.w(TAG, "No app found to handle custom-scheme URI: $uri (fallback=$fallbackUrl)")
         Toast.makeText(
             this,
@@ -143,28 +152,48 @@ class WebViewActivity : ComponentActivity() {
         ).show()
     }
 
-    /** Resolves [intent] via `resolveActivity`, tolerating any resolution failure. */
-    private fun resolves(intent: Intent): Boolean {
-        return try {
-            packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY) != null
+    /**
+     * Runs on the final failure path only: reports, for BOTH the scheme URI and
+     * the https fallback (when remembered), how many activities
+     * `PackageManager.queryIntentActivities` resolves and which packages they
+     * belong to — so logcat shows exactly what the OS *can* resolve.
+     *
+     * Log format:
+     * `No handler found. scheme=[snssdk1340://…] matched 0 activities; https=[https://…] matched 1 activities (packages: com.zhiliaoapp.musically)`
+     *
+     * Never throws.
+     */
+    private fun logUnresolvedHandlers(schemeUri: Uri, fallbackUrl: String?) {
+        try {
+            val schemePart = "scheme=[$schemeUri] ${describeResolvableHandlers(schemeUri)}"
+            val httpsPart = if (fallbackUrl != null) {
+                "https=[$fallbackUrl] ${describeResolvableHandlers(Uri.parse(fallbackUrl))}"
+            } else {
+                "https=[none] no remembered fallback URL"
+            }
+            Log.w(TAG, "No handler found. $schemePart; $httpsPart")
         } catch (e: Exception) {
-            false
+            Log.w(TAG, "Failed to collect unresolved-handler diagnostics", e)
         }
     }
 
-    private fun startActivitySafely(intent: Intent, target: String) {
-        try {
-            Log.i(TAG, "Launching in app via: $target")
-            startActivity(intent)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to launch: $target", e)
-            if (ActivityLaunchGuard.canStart(this)) {
-                Toast.makeText(
-                    this,
-                    getString(R.string.open_app_unavailable),
-                    Toast.LENGTH_SHORT,
-                ).show()
+    /** Returns e.g. `matched 0 activities` or `matched 2 activities (packages: a, b)`; never throws. */
+    private fun describeResolvableHandlers(uri: Uri): String {
+        return try {
+            val matches = packageManager.queryIntentActivities(
+                Intent(Intent.ACTION_VIEW, uri),
+                PackageManager.MATCH_DEFAULT_ONLY,
+            )
+            val packages = matches
+                .mapNotNull { it.activityInfo?.packageName }
+                .distinct()
+            if (packages.isEmpty()) {
+                "matched 0 activities"
+            } else {
+                "matched ${packages.size} activities (packages: ${packages.joinToString(", ")})"
             }
+        } catch (e: Exception) {
+            "handler query failed (${e.javaClass.simpleName}: ${e.message})"
         }
     }
 
