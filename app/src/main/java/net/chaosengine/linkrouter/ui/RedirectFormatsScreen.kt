@@ -35,7 +35,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
@@ -45,7 +45,6 @@ fun RedirectFormatsScreen(
     vm: RulesViewModel,
     onBack: () -> Unit,
 ) {
-    val context = LocalContext.current
     var showEditor by rememberSaveable { mutableStateOf(false) }
     var editingFormat by remember { mutableStateOf<net.chaosengine.linkrouter.rules.RedirectFormat?>(null) }
     val formats = vm.formats
@@ -53,7 +52,7 @@ fun RedirectFormatsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(context.getString(net.chaosengine.linkrouter.R.string.redirect_formats_title)) },
+                title = { Text(stringResource(net.chaosengine.linkrouter.R.string.redirect_formats_title)) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                 ),
@@ -66,7 +65,7 @@ fun RedirectFormatsScreen(
                     IconButton(onClick = { editingFormat = null; showEditor = true }) {
                         Icon(
                             Icons.Filled.Add,
-                            contentDescription = context.getString(net.chaosengine.linkrouter.R.string.add_redirect_format),
+                            contentDescription = stringResource(net.chaosengine.linkrouter.R.string.add_redirect_format),
                         )
                     }
                 },
@@ -80,7 +79,7 @@ fun RedirectFormatsScreen(
         ) {
             item {
                 Text(
-                    text = context.getString(net.chaosengine.linkrouter.R.string.redirect_formats_body),
+                    text = stringResource(net.chaosengine.linkrouter.R.string.redirect_formats_body),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),

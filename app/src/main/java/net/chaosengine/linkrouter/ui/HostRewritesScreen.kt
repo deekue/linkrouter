@@ -50,8 +50,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -75,7 +75,6 @@ fun HostRewritesScreen(
     vm: RulesViewModel,
     onBack: () -> Unit,
 ) {
-    val context = LocalContext.current
     var showAdd by rememberSaveable { mutableStateOf(false) }
     var editing by remember { mutableStateOf<HostRewrite?>(null) }
     val rows = vm.hostRewrites
@@ -83,20 +82,20 @@ fun HostRewritesScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(context.getString(R.string.host_rewrites_title)) },
+                title = { Text(stringResource(R.string.host_rewrites_title)) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                 ),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = context.getString(R.string.back))
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 actions = {
                     IconButton(onClick = { showAdd = true }) {
                         Icon(
                             Icons.Filled.Add,
-                            contentDescription = context.getString(R.string.add_host_rewrite),
+                            contentDescription = stringResource(R.string.add_host_rewrite),
                         )
                     }
                 },
@@ -110,7 +109,7 @@ fun HostRewritesScreen(
         ) {
             item {
                 Text(
-                    text = context.getString(R.string.host_rewrites_body),
+                    text = stringResource(R.string.host_rewrites_body),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -173,7 +172,6 @@ private fun HostRewriteRowItem(
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
 ) {
-    val context = LocalContext.current
 
     Row(
         modifier = Modifier
@@ -185,11 +183,11 @@ private fun HostRewriteRowItem(
         // Reorder (up/down)
         IconButton(onClick = onMoveUp, enabled = canMoveUp,
             modifier = Modifier.size(32.dp).testTag("hostrewrite_${rewrite.id}_moveUp")) {
-            Icon(Icons.Filled.KeyboardDoubleArrowUp, contentDescription = context.getString(R.string.move_up))
+            Icon(Icons.Filled.KeyboardDoubleArrowUp, contentDescription = stringResource(R.string.move_up))
         }
         IconButton(onClick = onMoveDown, enabled = canMoveDown,
             modifier = Modifier.size(32.dp).testTag("hostrewrite_${rewrite.id}_moveDown")) {
-            Icon(Icons.Filled.KeyboardDoubleArrowDown, contentDescription = context.getString(R.string.move_down))
+            Icon(Icons.Filled.KeyboardDoubleArrowDown, contentDescription = stringResource(R.string.move_down))
         }
 
         Column(modifier = Modifier.weight(1f)) {
@@ -213,7 +211,7 @@ private fun HostRewriteRowItem(
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
-                            text = context.getString(R.string.builtin_badge),
+                            text = stringResource(R.string.builtin_badge),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
                         )
@@ -222,7 +220,7 @@ private fun HostRewriteRowItem(
             }
             Spacer(Modifier.size(2.dp))
             Text(
-                text = "${kindLabel(context, rewrite.kind)}  →  ${rewrite.targetHost}",
+                text = "${stringResource(kindRes(rewrite.kind))}  →  ${rewrite.targetHost}",
                 style = MaterialTheme.typography.bodySmall,
                 color = if (rewrite.enabled) MaterialTheme.colorScheme.onSurfaceVariant
                 else MaterialTheme.colorScheme.error,
@@ -234,17 +232,17 @@ private fun HostRewriteRowItem(
         Switch(checked = rewrite.enabled, onCheckedChange = { onToggle() })
 
         IconButton(onClick = onEdit) {
-            Icon(Icons.Filled.Edit, contentDescription = context.getString(R.string.edit))
+            Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.edit))
         }
 
         if (rewrite.isBuiltIn) {
             // Built-in: delete is refused downstream — show it disabled, not gone.
             IconButton(onClick = {}, enabled = false) {
-                Icon(Icons.Filled.Delete, contentDescription = context.getString(R.string.host_rewrite_delete_disabled))
+                Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.host_rewrite_delete_disabled))
             }
         } else {
             IconButton(onClick = onDelete) {
-                Icon(Icons.Filled.Delete, contentDescription = context.getString(R.string.delete))
+                Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.delete))
             }
         }
     }
@@ -258,7 +256,6 @@ fun HostRewriteDialog(
     onDone: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val context = LocalContext.current
     val isBuiltin = existing?.isBuiltIn == true
 
     var matchHost by rememberSaveable { mutableStateOf(existing?.matchHost ?: "") }
@@ -299,7 +296,7 @@ fun HostRewriteDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                context.getString(
+                stringResource(
                     if (existing == null) R.string.add_host_rewrite
                     else R.string.edit_host_rewrite,
                 )
@@ -312,7 +309,7 @@ fun HostRewriteDialog(
                     .fillMaxWidth(),
             ) {
                 BuiltInRuleExamples(existing?.matchHost, builtInHostRewriteExamples)
-                Text(context.getString(R.string.host_rewrite_match_host), style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.host_rewrite_match_host), style = MaterialTheme.typography.labelLarge)
                 OutlinedTextField(
                     value = matchHost,
                     onValueChange = { matchHost = it },
@@ -322,7 +319,7 @@ fun HostRewriteDialog(
                 )
                 Spacer(Modifier.height(10.dp))
 
-                Text(context.getString(R.string.host_rewrite_match_type), style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.host_rewrite_match_type), style = MaterialTheme.typography.labelLarge)
                 FlowRow(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -334,13 +331,13 @@ fun HostRewriteDialog(
                         FilterChip(
                             selected = mt == m,
                             onClick = { matchType = m.name },
-                            label = { Text(matchTypeLabel(context, m)) },
+                            label = { Text(stringResource(matchTypeRes(m))) },
                         )
                     }
                 }
                 Spacer(Modifier.height(10.dp))
 
-                Text(context.getString(R.string.host_rewrite_kind), style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.host_rewrite_kind), style = MaterialTheme.typography.labelLarge)
                 FlowRow(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -352,13 +349,13 @@ fun HostRewriteDialog(
                         FilterChip(
                             selected = kd == k,
                             onClick = { kindName = k.name },
-                            label = { Text(kindLabel(context, k)) },
+                            label = { Text(stringResource(kindRes(k))) },
                         )
                     }
                 }
                 Spacer(Modifier.height(10.dp))
 
-                Text(context.getString(R.string.host_rewrite_target_host), style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.host_rewrite_target_host), style = MaterialTheme.typography.labelLarge)
                 OutlinedTextField(
                     value = targetHost,
                     onValueChange = { targetHost = it },
@@ -376,11 +373,11 @@ fun HostRewriteDialog(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = context.getString(R.string.host_rewrite_preserve_host),
+                            text = stringResource(R.string.host_rewrite_preserve_host),
                             style = MaterialTheme.typography.labelLarge,
                         )
                         Text(
-                            text = context.getString(R.string.host_rewrite_preserve_hint),
+                            text = stringResource(R.string.host_rewrite_preserve_hint),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -400,7 +397,7 @@ fun HostRewriteDialog(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = context.getString(R.string.host_rewrite_enabled),
+                        text = stringResource(R.string.host_rewrite_enabled),
                         style = MaterialTheme.typography.labelLarge,
                         modifier = Modifier.weight(1f),
                     )
@@ -427,7 +424,7 @@ fun HostRewriteDialog(
                 val warnings = (validation as? HostRewriteValidator.Result.Valid)?.warnings
                 if (warnings != null && warnings.isNotEmpty()) {
                     Text(
-                        text = context.getString(R.string.host_rewrite_warnings),
+                        text = stringResource(R.string.host_rewrite_warnings),
                         style = MaterialTheme.typography.labelLarge,
                         modifier = Modifier.padding(top = 8.dp),
                     )
@@ -443,10 +440,10 @@ fun HostRewriteDialog(
 
                 Spacer(Modifier.height(12.dp))
 
-                Text(context.getString(R.string.live_preview), style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.live_preview), style = MaterialTheme.typography.labelLarge)
                 if (sample.isEmpty()) {
                     Text(
-                        text = context.getString(R.string.no_match),
+                        text = stringResource(R.string.no_match),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(top = 6.dp),
@@ -479,21 +476,21 @@ fun HostRewriteDialog(
                         else -> onDone()
                     }
                 },
-            ) { Text(context.getString(R.string.save)) }
+            ) { Text(stringResource(R.string.save)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(context.getString(R.string.cancel)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }
 
-private fun matchTypeLabel(context: android.content.Context, m: RewriteMatchType): String = when (m) {
-    RewriteMatchType.EXACT_HOST -> context.getString(R.string.rewrite_match_exact_host)
-    RewriteMatchType.EXACT_WWW_HOST -> context.getString(R.string.rewrite_match_exact_www)
-    RewriteMatchType.SUBDOMAIN -> context.getString(R.string.rewrite_match_subdomain)
+private fun matchTypeRes(m: RewriteMatchType): Int = when (m) {
+    RewriteMatchType.EXACT_HOST -> R.string.rewrite_match_exact_host
+    RewriteMatchType.EXACT_WWW_HOST -> R.string.rewrite_match_exact_www
+    RewriteMatchType.SUBDOMAIN -> R.string.rewrite_match_subdomain
 }
 
-private fun kindLabel(context: android.content.Context, k: RewriteKind): String = when (k) {
-    RewriteKind.HOST_SWAP -> context.getString(R.string.rewrite_kind_host_swap)
-    RewriteKind.PATH_PREFIX_REWRITE -> context.getString(R.string.rewrite_kind_path_prefix)
+private fun kindRes(k: RewriteKind): Int = when (k) {
+    RewriteKind.HOST_SWAP -> R.string.rewrite_kind_host_swap
+    RewriteKind.PATH_PREFIX_REWRITE -> R.string.rewrite_kind_path_prefix
 }
 
 /** A sample URL that exercises the rule's host scope so the live preview is meaningful. */

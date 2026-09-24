@@ -36,7 +36,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
@@ -51,14 +51,13 @@ fun ShortenerHostsScreen(
     vm: RulesViewModel,
     onBack: () -> Unit,
 ) {
-    val context = LocalContext.current
     var showAdd by rememberSaveable { mutableStateOf(false) }
     val hosts = vm.shortenerHosts
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(context.getString(net.chaosengine.linkrouter.R.string.shorteners_title)) },
+                title = { Text(stringResource(net.chaosengine.linkrouter.R.string.shorteners_title)) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                 ),
@@ -71,7 +70,7 @@ fun ShortenerHostsScreen(
                     IconButton(onClick = { showAdd = true }) {
                         Icon(
                             Icons.Filled.Add,
-                            contentDescription = context.getString(net.chaosengine.linkrouter.R.string.add_shortener_host),
+                            contentDescription = stringResource(net.chaosengine.linkrouter.R.string.add_shortener_host),
                         )
                     }
                 },
@@ -85,7 +84,7 @@ fun ShortenerHostsScreen(
         ) {
             item {
                 Text(
-                    text = context.getString(net.chaosengine.linkrouter.R.string.shorteners_body),
+                    text = stringResource(net.chaosengine.linkrouter.R.string.shorteners_body),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -185,30 +184,29 @@ private fun ShortenerHostAddDialog(
     var host by remember { mutableStateOf("") }
     var pathPrefix by remember { mutableStateOf("") }
 
-    val context = LocalContext.current
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(context.getString(net.chaosengine.linkrouter.R.string.add_shortener_host)) },
+        title = { Text(stringResource(net.chaosengine.linkrouter.R.string.add_shortener_host)) },
         text = {
             Column {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text(context.getString(net.chaosengine.linkrouter.R.string.name)) },
+                    label = { Text(stringResource(net.chaosengine.linkrouter.R.string.name)) },
                     singleLine = true,
                 )
                 Spacer(Modifier.size(8.dp))
                 OutlinedTextField(
                     value = host,
                     onValueChange = { host = it },
-                    label = { Text(context.getString(net.chaosengine.linkrouter.R.string.shortener_host)) },
+                    label = { Text(stringResource(net.chaosengine.linkrouter.R.string.shortener_host)) },
                     singleLine = true,
                 )
                 Spacer(Modifier.size(8.dp))
                 OutlinedTextField(
                     value = pathPrefix,
                     onValueChange = { pathPrefix = it },
-                    label = { Text(context.getString(net.chaosengine.linkrouter.R.string.shortener_path_prefix)) },
+                    label = { Text(stringResource(net.chaosengine.linkrouter.R.string.shortener_path_prefix)) },
                     singleLine = true,
                 )
             }

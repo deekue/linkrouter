@@ -37,7 +37,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import net.chaosengine.linkrouter.rules.QueryParamFilter
@@ -55,7 +55,6 @@ fun QueryParamFiltersScreen(
     vm: RulesViewModel,
     onBack: () -> Unit,
 ) {
-    val context = LocalContext.current
     var showAdd by rememberSaveable { mutableStateOf(false) }
     var editing by remember { mutableStateOf<QueryParamFilter?>(null) }
     val rows = vm.queryParamFilters
@@ -63,7 +62,7 @@ fun QueryParamFiltersScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(context.getString(net.chaosengine.linkrouter.R.string.param_filters_title)) },
+                title = { Text(stringResource(net.chaosengine.linkrouter.R.string.param_filters_title)) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                 ),
@@ -76,7 +75,7 @@ fun QueryParamFiltersScreen(
                     IconButton(onClick = { showAdd = true }) {
                         Icon(
                             Icons.Filled.Add,
-                            contentDescription = context.getString(net.chaosengine.linkrouter.R.string.add_param_filter),
+                            contentDescription = stringResource(net.chaosengine.linkrouter.R.string.add_param_filter),
                         )
                     }
                 },
@@ -90,7 +89,7 @@ fun QueryParamFiltersScreen(
         ) {
             item {
                 Text(
-                    text = context.getString(net.chaosengine.linkrouter.R.string.param_filters_body),
+                    text = stringResource(net.chaosengine.linkrouter.R.string.param_filters_body),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -109,7 +108,7 @@ fun QueryParamFiltersScreen(
 
     if (showAdd) {
         ParamFilterDialog(
-            title = context.getString(net.chaosengine.linkrouter.R.string.add_param_filter),
+            title = stringResource(net.chaosengine.linkrouter.R.string.add_param_filter),
             initialParam = "",
             initialHost = "",
             onSave = { param, host ->
@@ -122,7 +121,7 @@ fun QueryParamFiltersScreen(
 
     if (editing != null) {
         ParamFilterDialog(
-            title = context.getString(net.chaosengine.linkrouter.R.string.edit_param_filter),
+            title = stringResource(net.chaosengine.linkrouter.R.string.edit_param_filter),
             initialParam = editing!!.param,
             initialHost = editing!!.host ?: "",
             onSave = { param, host ->
@@ -185,9 +184,8 @@ private fun ParamFilterRowItem(
                 }
             }
             Spacer(Modifier.size(2.dp))
-            val context = LocalContext.current
             Text(
-                text = filter.host ?: context.getString(net.chaosengine.linkrouter.R.string.param_filter_all_domains),
+                text = filter.host ?: stringResource(net.chaosengine.linkrouter.R.string.param_filter_all_domains),
                 style = MaterialTheme.typography.bodySmall,
                 color = if (filter.enabled) MaterialTheme.colorScheme.onSurfaceVariant
                 else MaterialTheme.colorScheme.error,
@@ -220,7 +218,6 @@ private fun ParamFilterDialog(
     var param by remember { mutableStateOf(initialParam) }
     var host by remember { mutableStateOf(initialHost) }
 
-    val context = LocalContext.current
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
@@ -230,14 +227,14 @@ private fun ParamFilterDialog(
                 OutlinedTextField(
                     value = param,
                     onValueChange = { param = it },
-                    label = { Text(context.getString(net.chaosengine.linkrouter.R.string.param_filter_param)) },
+                    label = { Text(stringResource(net.chaosengine.linkrouter.R.string.param_filter_param)) },
                     singleLine = true,
                 )
                 Spacer(Modifier.size(8.dp))
                 OutlinedTextField(
                     value = host,
                     onValueChange = { host = it },
-                    label = { Text(context.getString(net.chaosengine.linkrouter.R.string.param_filter_host)) },
+                    label = { Text(stringResource(net.chaosengine.linkrouter.R.string.param_filter_host)) },
                     singleLine = true,
                 )
             }

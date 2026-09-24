@@ -59,7 +59,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -84,7 +84,6 @@ fun RulesScreen(
     var editingRule by remember { mutableStateOf<Rule?>(null) }
     val rows = vm.rows
     val targets by vm.targets.collectAsStateWithLifecycle()
-    val context = LocalContext.current
 
     Scaffold(
         topBar = {
@@ -95,16 +94,16 @@ fun RulesScreen(
                 ),
                 actions = {
                     IconButton(onClick = onOpenRedirects) {
-                        Icon(Icons.Filled.Link, contentDescription = context.getString(net.chaosengine.linkrouter.R.string.redirect_formats_title))
+                        Icon(Icons.Filled.Link, contentDescription = stringResource(net.chaosengine.linkrouter.R.string.redirect_formats_title))
                     }
                     IconButton(onClick = onOpenShorteners) {
-                        Icon(Icons.Filled.Public, contentDescription = context.getString(net.chaosengine.linkrouter.R.string.shorteners_title))
+                        Icon(Icons.Filled.Public, contentDescription = stringResource(net.chaosengine.linkrouter.R.string.shorteners_title))
                     }
                     IconButton(onClick = onOpenParamFilters) {
-                        Icon(Icons.Filled.Tune, contentDescription = context.getString(net.chaosengine.linkrouter.R.string.param_filters_title))
+                        Icon(Icons.Filled.Tune, contentDescription = stringResource(net.chaosengine.linkrouter.R.string.param_filters_title))
                     }
                     IconButton(onClick = onOpenHostRewrites) {
-                        Icon(Icons.Filled.SwapHoriz, contentDescription = context.getString(net.chaosengine.linkrouter.R.string.host_rewrites_title))
+                        Icon(Icons.Filled.SwapHoriz, contentDescription = stringResource(net.chaosengine.linkrouter.R.string.host_rewrites_title))
                     }
                     IconButton(onClick = onOpenSettings) {
                         Icon(Icons.Filled.Settings, contentDescription = "Settings")
@@ -128,17 +127,17 @@ fun RulesScreen(
                 verticalArrangement = Arrangement.Center,
             ) {
                 Text(
-                    text = context.getString(net.chaosengine.linkrouter.R.string.empty_rules_title),
+                    text = stringResource(net.chaosengine.linkrouter.R.string.empty_rules_title),
                     style = MaterialTheme.typography.titleLarge,
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    text = context.getString(net.chaosengine.linkrouter.R.string.empty_rules_body),
+                    text = stringResource(net.chaosengine.linkrouter.R.string.empty_rules_body),
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Spacer(Modifier.height(24.dp))
                 Button(onClick = onOpenDefaultBrowserPrompt) {
-                    Text(context.getString(net.chaosengine.linkrouter.R.string.set_default_browser))
+                    Text(stringResource(net.chaosengine.linkrouter.R.string.set_default_browser))
                 }
             }
             return@Scaffold
