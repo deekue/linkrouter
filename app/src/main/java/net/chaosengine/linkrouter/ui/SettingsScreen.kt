@@ -38,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import net.chaosengine.linkrouter.R
@@ -64,6 +65,9 @@ fun SettingsScreen(
     val warnPrivate by vm.warnPrivate.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = remember { CoroutineScope(Dispatchers.Main.immediate) }
+    val msgImportFailed = stringResource(R.string.import_failed)
+    val msgExportFailed = stringResource(R.string.export_failed)
+    val msgRescanDone = stringResource(R.string.rescan_done)
 
     val importLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument(),
@@ -72,7 +76,7 @@ fun SettingsScreen(
         val json = context.contentResolver.openInputStream(uri)
             ?.use { it.readBytes().decodeToString() }
         if (json == null) {
-            scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.import_failed)) }
+            scope.launch { snackbarHostState.showSnackbar(msgImportFailed) }
             return@rememberLauncherForActivityResult
         }
         val imported = vm.parseJson(json)
@@ -80,27 +84,25 @@ fun SettingsScreen(
         val importedFilters = vm.parseFilterJson(json)
         val importedHosts = vm.parseShortenerHostJson(json)
         val importedRewrites = vm.parseHostRewriteJson(json)
-        scope.launch {
-            if (imported == null && importedFormats == null) {
-                snackbarHostState.showSnackbar(context.getString(R.string.import_failed))
-            } else {
-                imported?.let { vm.importRules(it) }
-                importedFormats?.let { vm.importFormats(it) }
-                importedFilters?.let { vm.importQueryParamFilters(it) }
-                importedHosts?.let { vm.importShortenerHosts(it) }
-                importedRewrites?.let { vm.importHostRewrites(it) }
-                val rulesCount = imported?.size ?: 0
-                val fmtCount = importedFormats?.size ?: 0
-                val msg = if (rulesCount > 0 && fmtCount > 0) {
-                    context.getString(R.string.import_ok_both, rulesCount, fmtCount)
-                } else if (rulesCount > 0) {
-                    context.getString(R.string.import_ok, rulesCount)
-                } else {
-                    context.getString(R.string.import_ok_formats, fmtCount)
-                }
-                snackbarHostState.showSnackbar(msg)
-            }
+        if (imported == null && importedFormats == null) {
+            scope.launch { snackbarHostState.showSnackbar(msgImportFailed) }
+            return@rememberLauncherForActivityResult
         }
+        imported?.let { vm.importRules(it) }
+        importedFormats?.let { vm.importFormats(it) }
+        importedFilters?.let { vm.importQueryParamFilters(it) }
+        importedHosts?.let { vm.importShortenerHosts(it) }
+        importedRewrites?.let { vm.importHostRewrites(it) }
+        val rulesCount = imported?.size ?: 0
+        val fmtCount = importedFormats?.size ?: 0
+        val msg = if (rulesCount > 0 && fmtCount > 0) {
+            context.resources.getString(R.string.import_ok_both, rulesCount, fmtCount)
+        } else if (rulesCount > 0) {
+            context.resources.getString(R.string.import_ok, rulesCount)
+        } else {
+            context.resources.getString(R.string.import_ok_formats, fmtCount)
+        }
+        scope.launch { snackbarHostState.showSnackbar(msg) }
     }
 
     val exportLauncher = rememberLauncherForActivityResult(
@@ -118,9 +120,12 @@ fun SettingsScreen(
                 context.contentResolver.openOutputStream(uri)
                     ?.use { it.write(text.encodeToByteArray()) }
                     ?: error("no stream")
-                snackbarHostState.showSnackbar(context.getString(R.string.export_ok, rules.size + formats.size + filters.size + hosts.size + rewrites.size))
+                val total = rules.size + formats.size + filters.size + hosts.size + rewrites.size
+                snackbarHostState.showSnackbar(
+                    context.resources.getString(R.string.export_ok, total)
+                )
             } catch (e: Exception) {
-                snackbarHostState.showSnackbar(context.getString(R.string.export_failed))
+                snackbarHostState.showSnackbar(msgExportFailed)
             }
         }
     }
@@ -128,7 +133,7 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(context.getString(R.string.settings)) },
+                title = { Text(stringResource(R.string.settings)) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                 ),
@@ -150,7 +155,7 @@ fun SettingsScreen(
         ) {
             // Fallback mode (DESIGN.md section 9)
             Text(
-                context.getString(R.string.fallback_mode),
+                stringResource(R.string.fallback_mode),
                 style = MaterialTheme.typography.titleMedium,
             )
             for (mode in FallbackMode.entries) {
@@ -164,7 +169,7 @@ fun SettingsScreen(
                     )
                     Spacer(Modifier.width(4.dp))
                     Text(
-                        text = fallbackLabel(context, mode),
+                        text = stringResource(fallbackRes(mode)),
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.weight(1f),
                     )
@@ -185,16 +190,16 @@ fun SettingsScreen(
                 onClick = {
                     vm.refreshBrowsers()
                     scope.launch {
-                        snackbarHostState.showSnackbar(context.getString(R.string.rescan_done))
+                        snackbarHostState.showSnackbar(msgRescanDone)
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text(context.getString(R.string.refresh_browsers)) }
+            ) { Text(stringResource(R.string.refresh_browsers)) }
 
             OutlinedButton(
                 onClick = onOpenDefaultBrowserPrompt,
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text(context.getString(R.string.open_default_prompt)) }
+            ) { Text(stringResource(R.string.open_default_prompt)) }
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -205,11 +210,11 @@ fun SettingsScreen(
                         importLauncher.launch(arrayOf("application/json", "application/octet-stream"))
                     },
                     modifier = Modifier.weight(1f),
-                ) { Text(context.getString(R.string.import_rules)) }
+                ) { Text(stringResource(R.string.import_rules)) }
                 OutlinedButton(
                     onClick = { exportLauncher.launch("linkrouter-rules.json") },
                     modifier = Modifier.weight(1f),
-                ) { Text(context.getString(R.string.export_rules)) }
+                ) { Text(stringResource(R.string.export_rules)) }
             }
 
             Spacer(Modifier.height(8.dp))
@@ -220,7 +225,7 @@ fun SettingsScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    context.getString(R.string.private_warn_title),
+                    stringResource(R.string.private_warn_title),
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.weight(1f),
                 )
@@ -232,10 +237,10 @@ fun SettingsScreen(
             TextButton(
                 onClick = { vm.resetPrivateWarnings() },
                 enabled = warnPrivate,
-            ) { Text(context.getString(R.string.private_warn_reset)) }
+            ) { Text(stringResource(R.string.private_warn_reset)) }
 
             Text(
-                context.getString(R.string.work_profile_note),
+                stringResource(R.string.work_profile_note),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -254,10 +259,9 @@ private fun FallbackBrowserPicker(
     selected: String?,
     onPick: (String) -> Unit,
 ) {
-    val context = LocalContext.current
     var expanded by remember { mutableStateOf(false) }
     val selectedLabel = browsers.firstOrNull { it.packageName == selected }?.label
-        ?: (selected ?: context.getString(R.string.fallback_specific_picker))
+        ?: (selected ?: stringResource(R.string.fallback_specific_picker))
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -267,7 +271,7 @@ private fun FallbackBrowserPicker(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = context.getString(R.string.fallback_specific_picker),
+                text = stringResource(R.string.fallback_specific_picker),
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.weight(1f),
             )
@@ -278,7 +282,7 @@ private fun FallbackBrowserPicker(
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             if (browsers.isEmpty()) {
                 Text(
-                    text = context.getString(R.string.no_browsers_found),
+                    text = stringResource(R.string.no_browsers_found),
                     modifier = Modifier.padding(16.dp),
                 )
             }
@@ -295,10 +299,10 @@ private fun FallbackBrowserPicker(
     }
 }
 
-private fun fallbackLabel(context: android.content.Context, mode: FallbackMode): String = when (mode) {
-    FallbackMode.CHOOSER -> context.getString(R.string.fallback_chooser)
-    FallbackMode.OS_DEFAULT -> context.getString(R.string.fallback_os_default)
-    FallbackMode.BLOCK -> context.getString(R.string.fallback_block)
-    FallbackMode.ASK_REMEMBER -> context.getString(R.string.fallback_ask_remember)
-    FallbackMode.FALLBACK_BROWSER -> context.getString(R.string.fallback_specific)
+private fun fallbackRes(mode: FallbackMode): Int = when (mode) {
+    FallbackMode.CHOOSER -> R.string.fallback_chooser
+    FallbackMode.OS_DEFAULT -> R.string.fallback_os_default
+    FallbackMode.BLOCK -> R.string.fallback_block
+    FallbackMode.ASK_REMEMBER -> R.string.fallback_ask_remember
+    FallbackMode.FALLBACK_BROWSER -> R.string.fallback_specific
 }

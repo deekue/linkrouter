@@ -23,7 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import net.chaosengine.linkrouter.R
@@ -41,12 +41,11 @@ fun BrowserChooserScreen(
     onPick: (BrowserInfo) -> Unit,
 ) {
     val list by browsers.collectAsStateWithLifecycle()
-    val context = LocalContext.current
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(context.getString(R.string.open_with)) },
+                title = { Text(stringResource(R.string.open_with)) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                 ),
@@ -63,7 +62,7 @@ fun BrowserChooserScreen(
                 verticalArrangement = Arrangement.Center,
             ) {
                 Text(
-                    text = context.getString(R.string.no_browsers_found),
+                    text = stringResource(R.string.no_browsers_found),
                     style = MaterialTheme.typography.titleMedium,
                 )
             }

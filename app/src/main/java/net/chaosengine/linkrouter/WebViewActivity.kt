@@ -46,6 +46,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -369,10 +370,12 @@ private fun WebViewScreen(
      */
     fun showOpenAppPrompt(uri: Uri) {
         val scheme = uri.scheme?.takeIf { it.isNotBlank() } ?: "this link"
+        val message = context.resources.getString(R.string.open_app_prompt, scheme)
+        val actionLabel = context.resources.getString(R.string.open_app)
         scope.launch {
             val result = snackbarHostState.showSnackbar(
-                message = context.getString(R.string.open_app_prompt, scheme),
-                actionLabel = context.getString(R.string.open_app),
+                message = message,
+                actionLabel = actionLabel,
                 withDismissAction = true,
             )
             if (result == SnackbarResult.ActionPerformed) {
@@ -422,17 +425,18 @@ private fun WebViewScreen(
                     }
                     IconButton(
                         onClick = {
+                            val success = onCopyUrl()
                             scope.launch {
                                 snackbarHostState.showSnackbar(
-                                    context.getString(
-                                        if (onCopyUrl()) R.string.copy_url_done
+                                    context.resources.getString(
+                                        if (success) R.string.copy_url_done
                                         else R.string.copy_url_failed
                                     )
                                 )
                             }
                         },
                     ) {
-                        Icon(Icons.Filled.Link, contentDescription = context.getString(R.string.copy_url))
+                        Icon(Icons.Filled.Link, contentDescription = stringResource(R.string.copy_url))
                     }
                     IconButton(onClick = onClose) {
                         Icon(Icons.Filled.Close, contentDescription = "Close")

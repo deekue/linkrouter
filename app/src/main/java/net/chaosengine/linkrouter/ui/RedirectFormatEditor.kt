@@ -36,7 +36,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -54,7 +54,6 @@ fun RedirectFormatEditor(
     onSave: (name: String, pattern: String, matchType: MatchType, extractType: ExtractType, extractTarget: String, openRealDestination: Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val context = LocalContext.current
     var name by rememberSaveable { mutableStateOf(existing?.name ?: "") }
     var pattern by rememberSaveable { mutableStateOf(existing?.pattern ?: "") }
     var matchType by rememberSaveable {
@@ -96,7 +95,7 @@ fun RedirectFormatEditor(
                     .verticalScroll(rememberScrollState())
                     .fillMaxWidth(),
             ) {
-                Text(context.getString(AppR.string.name), style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(AppR.string.name), style = MaterialTheme.typography.labelLarge)
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
@@ -109,7 +108,7 @@ fun RedirectFormatEditor(
                 Spacer(Modifier.height(10.dp))
 
                 Text(
-                    context.getString(AppR.string.pattern_wrapper),
+                    stringResource(AppR.string.pattern_wrapper),
                     style = MaterialTheme.typography.labelLarge,
                 )
                 OutlinedTextField(
@@ -125,7 +124,7 @@ fun RedirectFormatEditor(
                 Spacer(Modifier.height(10.dp))
 
                 Text(
-                    context.getString(AppR.string.match_type),
+                    stringResource(AppR.string.match_type),
                     style = MaterialTheme.typography.labelLarge,
                 )
                 FlowRow(
@@ -140,7 +139,7 @@ fun RedirectFormatEditor(
                             selected = mt == m,
                             enabled = !isBuiltin,
                             onClick = { matchType = m.name },
-                            label = { Text(matchLabel(context, m)) },
+                            label = { Text(stringResource(matchRes(m))) },
                         )
                     }
                 }
@@ -148,7 +147,7 @@ fun RedirectFormatEditor(
                 Spacer(Modifier.height(10.dp))
 
                 Text(
-                    context.getString(AppR.string.extract_type),
+                    stringResource(AppR.string.extract_type),
                     style = MaterialTheme.typography.labelLarge,
                 )
                 FlowRow(
@@ -163,7 +162,7 @@ fun RedirectFormatEditor(
                             selected = et == e,
                             enabled = !isBuiltin,
                             onClick = { extractType = e.name },
-                            label = { Text(extractLabel(context, e)) },
+                            label = { Text(stringResource(extractRes(e))) },
                         )
                     }
                 }
@@ -175,8 +174,8 @@ fun RedirectFormatEditor(
                     onValueChange = { extractTarget = it },
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !isBuiltin,
-                    label = { Text(context.getString(AppR.string.extraction_target)) },
-                    placeholder = { Text(targetPlaceholder(context, et)) },
+                    label = { Text(stringResource(AppR.string.extraction_target)) },
+                    placeholder = { Text(stringResource(targetPlaceholderRes(et))) },
                     singleLine = true,
                 )
 
@@ -190,11 +189,11 @@ fun RedirectFormatEditor(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = context.getString(AppR.string.open_real_destination),
+                            text = stringResource(AppR.string.open_real_destination),
                             style = MaterialTheme.typography.labelLarge,
                         )
                         Text(
-                            text = context.getString(AppR.string.open_real_destination_hint),
+                            text = stringResource(AppR.string.open_real_destination_hint),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -213,7 +212,7 @@ fun RedirectFormatEditor(
 
                 if (isBuiltin) {
                     Text(
-                        text = context.getString(AppR.string.builtin_readonly),
+                        text = stringResource(AppR.string.builtin_readonly),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(top = 8.dp),
@@ -227,7 +226,7 @@ fun RedirectFormatEditor(
                 Spacer(Modifier.height(12.dp))
 
                 Text(
-                    context.getString(AppR.string.live_preview),
+                    stringResource(AppR.string.live_preview),
                     style = MaterialTheme.typography.labelLarge,
                 )
                 val sample = RedirectFormatValidator.sampleWrapper(
@@ -258,7 +257,7 @@ fun RedirectFormatEditor(
                 )
                 if (sample.isEmpty()) {
                     Text(
-                        text = context.getString(AppR.string.no_match),
+                        text = stringResource(AppR.string.no_match),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(top = 6.dp),
@@ -289,23 +288,23 @@ fun RedirectFormatEditor(
     )
 }
 
-private fun matchLabel(context: android.content.Context, m: MatchType): String = when (m) {
-    MatchType.EXACT_HOST -> context.getString(AppR.string.match_exact_host)
-    MatchType.SUBDOMAIN -> context.getString(AppR.string.match_subdomain)
-    MatchType.PATH_PREFIX -> context.getString(AppR.string.match_path_prefix)
-    MatchType.REGEX -> context.getString(AppR.string.match_regex)
+private fun matchRes(m: MatchType): Int = when (m) {
+    MatchType.EXACT_HOST -> AppR.string.match_exact_host
+    MatchType.SUBDOMAIN -> AppR.string.match_subdomain
+    MatchType.PATH_PREFIX -> AppR.string.match_path_prefix
+    MatchType.REGEX -> AppR.string.match_regex
 }
 
-private fun extractLabel(context: android.content.Context, e: ExtractType): String = when (e) {
-    ExtractType.QUERY_PARAM -> context.getString(AppR.string.extract_query_param)
-    ExtractType.PATH_REGEX -> context.getString(AppR.string.extract_path_regex)
-    ExtractType.FULL_URL_REGEX -> context.getString(AppR.string.extract_full_url_regex)
-    ExtractType.BASE64_PARAM -> context.getString(AppR.string.extract_base64_param)
+private fun extractRes(e: ExtractType): Int = when (e) {
+    ExtractType.QUERY_PARAM -> AppR.string.extract_query_param
+    ExtractType.PATH_REGEX -> AppR.string.extract_path_regex
+    ExtractType.FULL_URL_REGEX -> AppR.string.extract_full_url_regex
+    ExtractType.BASE64_PARAM -> AppR.string.extract_base64_param
 }
 
-private fun targetPlaceholder(context: android.content.Context, e: ExtractType): String = when (e) {
-    ExtractType.QUERY_PARAM, ExtractType.BASE64_PARAM -> context.getString(AppR.string.target_param_name)
-    ExtractType.PATH_REGEX, ExtractType.FULL_URL_REGEX -> context.getString(AppR.string.target_regex)
+private fun targetPlaceholderRes(e: ExtractType): Int = when (e) {
+    ExtractType.QUERY_PARAM, ExtractType.BASE64_PARAM -> AppR.string.target_param_name
+    ExtractType.PATH_REGEX, ExtractType.FULL_URL_REGEX -> AppR.string.target_regex
 }
 
 @Composable
