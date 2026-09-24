@@ -83,7 +83,7 @@ android {
 
 buildscript {
     dependencies {
-        classpath("org.json:json:20240303")
+        classpath("org.json:json:20260814")
     }
 }
 
@@ -116,7 +116,7 @@ dependencies {
     // Testing
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.robolectric:robolectric:4.14.1")
-    testImplementation("androidx.test:core:1.6.1")
+    testImplementation("androidx.test:core:1.7.0")
     testImplementation("androidx.test.ext:junit:1.2.1")
     testImplementation("androidx.room:room-testing:2.8.5")
     debugImplementation("androidx.compose.ui:ui-tooling")
@@ -126,7 +126,7 @@ dependencies {
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.7.0")
-    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test:runner:1.7.0")
 }
 
 // --- Build-time generation of BuiltInExamples from linkrouter-rules-examples.json ---
