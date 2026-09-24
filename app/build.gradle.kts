@@ -83,7 +83,7 @@ android {
 
 buildscript {
     dependencies {
-        classpath("org.json:json:20240303")
+        classpath("org.json:json:20260814")
     }
 }
 
