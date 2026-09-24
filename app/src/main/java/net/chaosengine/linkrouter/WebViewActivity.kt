@@ -63,7 +63,9 @@ import kotlinx.coroutines.launch
  * - All in-page http/https navigation stays in-app (`shouldOverrideUrlLoading`).
  * - Non-http(s) custom-scheme redirects (e.g. `snssdk1233://`) are CONSUMED
  *   (so they don't wipe the visible page) and surfaced as a Snackbar with an
- *   "Open App" action that launches the scheme via `ACTION_VIEW`.
+ *   "Open App" action that launches the scheme via `ACTION_VIEW`, falling back
+ *   to the last loaded HTTP(S) URL when the scheme itself is not registered
+ *   (apps like TikTok resolve their https:// deep links but not `app://`).
  * - Back button pops the WebView history before finishing.
  * - Top bar shows the current URL + a private indicator.
  * - "Copy current URL" action copies the live URL to the clipboard.
@@ -75,6 +77,13 @@ class WebViewActivity : ComponentActivity() {
     private var isPrivate = false
     private var webView: WebView? = null
 
+    // Last HTTP(S) URL the WebView loaded (seeded from the initial URL and
+    // updated in `shouldOverrideUrlLoading`). Used as a fallback target for the
+    // "Open App" action: many apps (e.g. TikTok) register intent filters for
+    // their https:// web URLs but NOT for their custom app:// scheme, so
+    // `resolveActivity` can return null for the scheme.
+    private var lastHttpsUrl: String? = null
+
     companion object {
         const val EXTRA_URL = "net.chaosengine.linkrouter.webview.EXTRA_URL"
         const val EXTRA_PRIVATE = "net.chaosengine.linkrouter.webview.EXTRA_PRIVATE"
@@ -83,33 +92,72 @@ class WebViewActivity : ComponentActivity() {
     /**
      * Launch a custom-scheme URI (e.g. `snssdk1233://...`) in the handling app,
      * if one exists. Builds an `ACTION_VIEW` intent, verifies it resolves via
-     * `resolveActivity` before starting, and toasts when nothing handles the
-     * scheme. Best-effort — never crashes the WebView host.
+     * `resolveActivity` before starting.
+     *
+     * Many apps (TikTok included) register intent filters for their `https://`
+     * web URLs but NOT for their own custom app scheme, so the scheme intent can
+     * fail to resolve even with the app installed. When that happens we fall
+     * back to the last HTTP(S) URL seen by the WebView, which those apps DO
+     * handle. Only if neither resolves do we toast "no app found".
+     * Best-effort — never crashes the WebView host.
      */
     private fun launchCustomScheme(uri: Uri) {
         if (!ActivityLaunchGuard.canStart(this)) return
-        val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+
+        // 1) Preferred: the custom-scheme URI itself.
+        val schemeIntent = Intent(Intent.ACTION_VIEW, uri).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-        val resolved = try {
-            packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
-        } catch (e: Exception) {
-            null
-        }
-        if (resolved == null) {
-            Log.w(TAG, "No app found to handle custom-scheme URI: $uri")
-            Toast.makeText(
-                this,
-                getString(R.string.open_app_unavailable),
-                Toast.LENGTH_SHORT,
-            ).show()
+        if (resolves(schemeIntent)) {
+            startActivitySafely(schemeIntent, uri)
             return
         }
+
+        // 2) Fallback: the last HTTP(S) URL seen by the WebView (apps like
+        //    TikTok register intent filters for their https:// deep-link URLs).
+        val fallbackUrl = lastHttpsUrl
+        if (fallbackUrl != null) {
+            try {
+                val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse(fallbackUrl)).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                if (resolves(webIntent)) {
+                    Log.i(TAG, "Custom-scheme URI unresolved; launching https fallback URL: $fallbackUrl")
+                    startActivitySafely(webIntent, fallbackUrl)
+                    return
+                }
+                Log.w(TAG, "https fallback URL did not resolve either: $fallbackUrl")
+            } catch (e: Exception) {
+                Log.w(TAG, "https fallback URL is not a valid URI, skipping: $fallbackUrl", e)
+            }
+        } else {
+            Log.w(TAG, "No remembered https URL available to fall back to")
+        }
+
+        // 3) Neither resolved — nothing installed handles this link.
+        Log.w(TAG, "No app found to handle custom-scheme URI: $uri (fallback=$fallbackUrl)")
+        Toast.makeText(
+            this,
+            getString(R.string.open_app_unavailable),
+            Toast.LENGTH_SHORT,
+        ).show()
+    }
+
+    /** Resolves [intent] via `resolveActivity`, tolerating any resolution failure. */
+    private fun resolves(intent: Intent): Boolean {
+        return try {
+            packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY) != null
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    private fun startActivitySafely(intent: Intent, target: String) {
         try {
-            Log.i(TAG, "Launching custom-scheme URI in app: $uri")
+            Log.i(TAG, "Launching in app via: $target")
             startActivity(intent)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to launch custom-scheme URI: $uri", e)
+            Log.e(TAG, "Failed to launch: $target", e)
             if (ActivityLaunchGuard.canStart(this)) {
                 Toast.makeText(
                     this,
@@ -131,6 +179,11 @@ class WebViewActivity : ComponentActivity() {
             return
         }
         isPrivate = intent.getBooleanExtra(EXTRA_PRIVATE, false)
+        // Seed the https fallback with the initial URL when it is a web URL.
+        lastHttpsUrl = url.takeIf {
+            it.startsWith("http://", ignoreCase = true) ||
+                it.startsWith("https://", ignoreCase = true)
+        }
 
         setContent {
             MaterialTheme {
@@ -138,6 +191,7 @@ class WebViewActivity : ComponentActivity() {
                     initialUrl = url,
                     isPrivate = isPrivate,
                     onWebViewCreated = { webView = it },
+                    onUrlLoaded = { httpsUrl -> lastHttpsUrl = httpsUrl },
                     onBack = { webView?.goBack() },
                     onCopyUrl = { copyCurrentUrlToClipboard() },
                     onOpenApp = { uri -> launchCustomScheme(uri) },
@@ -193,6 +247,7 @@ private fun WebViewScreen(
     initialUrl: String,
     isPrivate: Boolean,
     onWebViewCreated: (WebView) -> Unit,
+    onUrlLoaded: (String) -> Unit,
     onBack: () -> Unit,
     onCopyUrl: () -> Boolean,
     onOpenApp: (Uri) -> Unit,
@@ -326,6 +381,7 @@ private fun WebViewScreen(
                                 // In-page web navigation stays in-app.
                                 if (scheme == "http" || scheme == "https") {
                                     view.loadUrl(uri.toString())
+                                    onUrlLoaded(uri.toString())
                                     return true
                                 }
                                 // Schemes the WebView manages internally
