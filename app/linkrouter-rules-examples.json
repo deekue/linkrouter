@@ -16,14 +16,26 @@
       ]
     },
     {
-      "pattern": "evil.com",
+      "pattern": "*.evil.com",
       "matchType": "SUBDOMAIN",
       "targetPackage": "net.chaosengine.linkrouter.stop",
       "openMode": "NORMAL",
       "enabled": true,
+      "priority": 100,
       "isBuiltIn": false,
       "examples": [
-        { "input": "https://pure.evil.com", "expectedOutput": "STOP" },
+        { "input": "https://pure.evil.com", "expectedOutput": "STOP" }
+      ]
+    },
+    {
+      "pattern": "evil.com",
+      "matchType": "EXACT_HOST",
+      "targetPackage": "net.chaosengine.linkrouter.stop",
+      "openMode": "NORMAL",
+      "enabled": true,
+      "priority": 100,
+      "isBuiltIn": false,
+      "examples": [
         { "input": "https://evil.com", "expectedOutput": "STOP" }
       ]
     }
