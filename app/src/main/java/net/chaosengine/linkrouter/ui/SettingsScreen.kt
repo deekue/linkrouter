@@ -63,6 +63,7 @@ fun SettingsScreen(
     val fallbackMode by vm.fallbackMode.collectAsStateWithLifecycle()
     val fallbackBrowser by vm.fallbackBrowser.collectAsStateWithLifecycle()
     val warnPrivate by vm.warnPrivate.collectAsStateWithLifecycle()
+    val ampCacheUnwrapEnabled by vm.ampCacheUnwrapEnabled.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = remember { CoroutineScope(Dispatchers.Main.immediate) }
     val msgImportFailed = stringResource(R.string.import_failed)
@@ -218,6 +219,27 @@ fun SettingsScreen(
             }
 
             Spacer(Modifier.height(8.dp))
+
+            // AMP cache URL unwrap toggle (settings, #72) — default ON.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    stringResource(R.string.amp_unwrap_title),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f),
+                )
+                Switch(
+                    checked = ampCacheUnwrapEnabled,
+                    onCheckedChange = { vm.setAmpCacheUnwrapEnabled(it) },
+                )
+            }
+            Text(
+                stringResource(R.string.amp_unwrap_description),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
 
             // One-time private warning toggle (D6)
             Row(

@@ -233,6 +233,8 @@ val generateBuiltIns = tasks.register("generateBuiltIns") {
         // other sections above), so this fixture exists purely to surface
         // examples: builtInAmpCacheUnwrapExamples feeds the unit test, the docs
         // page and any example UI. Absent/empty array still emits valid code.
+        // NOTE: runtime enable/disable of this stage is a SettingsStore flag
+        // (ampCacheUnwrapEnabled, default ON) — NOT something this fixture controls.
         val amp = if (root.has("ampCacheUnwrap")) root.getJSONArray("ampCacheUnwrap") else org.json.JSONArray()
         sb.appendLine("val builtInAmpCacheUnwrapExamples: List<RuleExample> = listOf(")
         for (i in 0 until amp.length()) {

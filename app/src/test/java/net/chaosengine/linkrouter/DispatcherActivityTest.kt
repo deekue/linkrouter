@@ -1250,4 +1250,48 @@ class DispatcherActivityTest {
         assertEquals(Uri.parse("https://amp.example.com/page?id=42"), started.data)
         assertTrue(started.getBooleanExtra(LinkRouter.EXTRA_HANDLED, false))
     }
+
+    @Test
+    fun `amp unwrap toggle enabled matches a rule on the origin host and launches the origin`() {
+        // Explicitly ON (also the default): existing #72 behavior — the rule on
+        // the ORIGIN host matches and the unwrapped origin URL is launched.
+        AppContainer.ruleRepository = FakeRepository(listOf(rule("org.example.browser"))) // pattern example.com
+        AppContainer.browserRegistry = FakeRegistry(context(), browser("org.example.browser"))
+        AppContainer.settings.setAmpCacheUnwrapEnabled(true)
+
+        val amp = "https://example-com.cdn.ampproject.org/c/s/example.com/news/story?id=42"
+        val activity = build(amp)
+        settle(activity)
+
+        val started = startedActivities(activity).single()
+        assertEquals("rule on the origin host must match", "org.example.browser", started.`package`)
+        assertEquals(
+            "the unwrapped ORIGIN url must be launched",
+            Uri.parse("https://example.com/news/story?id=42"),
+            started.data,
+        )
+        assertTrue(started.getBooleanExtra(LinkRouter.EXTRA_HANDLED, false))
+    }
+
+    @Test
+    fun `amp unwrap toggle disabled restores pre-72 behavior for the same amp cache url`() {
+        // Rule targets the ORIGIN host (example.com); with unwrap DISABLED the
+        // incoming AMP cache host does NOT match it → fallback chooser carries
+        // the ORIGINAL AMP cache URL verbatim (pre-#72 behavior).
+        AppContainer.ruleRepository = FakeRepository(listOf(rule("org.example.browser"))) // pattern example.com
+        AppContainer.browserRegistry = FakeRegistry(context(), null) // uninstalled → chooser
+        AppContainer.settings.setAmpCacheUnwrapEnabled(false)
+
+        val amp = "https://example-com.cdn.ampproject.org/c/s/example.com/news/story?id=42"
+        val activity = build(amp)
+        settle(activity)
+
+        val started = startedActivities(activity).single()
+        assertTrue("origin rule must NOT match when unwrap is disabled", isBrowserChooser(started))
+        assertEquals(
+            "the ORIGINAL AMP cache url must be launched unchanged",
+            Uri.parse(amp),
+            started.getParcelableExtra(LinkRouter.EXTRA_URI),
+        )
+    }
 }

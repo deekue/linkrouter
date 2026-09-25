@@ -44,6 +44,10 @@ class SettingsStore(context: Context) {
     private val _warnPrivate = MutableStateFlow(prefs.getBoolean(KEY_WARN_PRIVATE, true))
     val warnPrivate: StateFlow<Boolean> = _warnPrivate.asStateFlow()
 
+    /** Global toggle for the AMP cache URL unwrap stage (settings, #72). Default ON. */
+    private val _ampCacheUnwrapEnabled = MutableStateFlow(prefs.getBoolean(KEY_AMP_UNWRAP, true))
+    val ampCacheUnwrapEnabled: StateFlow<Boolean> = _ampCacheUnwrapEnabled.asStateFlow()
+
     /** True once the "private not supported" toast has fired for a browser. */
     private val warnedPrivate = mutableSetOf<String>()
 
@@ -71,6 +75,11 @@ class SettingsStore(context: Context) {
         prefs.edit().putBoolean(KEY_WARN_PRIVATE, enabled).apply()
     }
 
+    fun setAmpCacheUnwrapEnabled(enabled: Boolean) {
+        _ampCacheUnwrapEnabled.value = enabled
+        prefs.edit().putBoolean(KEY_AMP_UNWRAP, enabled).apply()
+    }
+
     /** Reset already-warned browsers (settings "acknowledge" action). */
     fun resetPrivateWarnings() {
         warnedPrivate.clear()
@@ -88,6 +97,7 @@ class SettingsStore(context: Context) {
         const val KEY_FALLBACK = "fallback_mode"
         const val KEY_REMEMBERED_PKG = "remembered_package"
         const val KEY_WARN_PRIVATE = "warn_private"
+        const val KEY_AMP_UNWRAP = "amp_cache_unwrap"
         const val KEY_FALLBACK_BROWSER = "fallback_browser"
     }
 }

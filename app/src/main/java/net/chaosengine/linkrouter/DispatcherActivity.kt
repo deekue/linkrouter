@@ -160,7 +160,14 @@ class DispatcherActivity : Activity() {
             // AMP cache unwrap: canonicalize an AMP cache URL (amp.to.xxx -> xxx)
             // BEFORE shortener resolution and rule matching, so rules match the
             // origin host/path. Log-only (consistent with the HostRewrite step).
-            val ampUnwrapped: String? = AmpCacheUnwrapper.unwrap(original.toString())
+            // Gated by the settings toggle (default ON); disabled restores the
+            // pre-#72 behavior (unwrap skipped).
+            val ampUnwrapped: String? = if (settings.ampCacheUnwrapEnabled.value) {
+                AmpCacheUnwrapper.unwrap(original.toString())
+            } else {
+                Log.i(AMP_UNWRAP_TAG, "AMP cache unwrap disabled by settings — skipping $original")
+                null
+            }
             if (ampUnwrapped != null && ampUnwrapped != original.toString()) {
                 Log.i(AMP_UNWRAP_TAG, "Unwrapped AMP cache URL: $original -> $ampUnwrapped")
                 matchCandidate = ampUnwrapped
