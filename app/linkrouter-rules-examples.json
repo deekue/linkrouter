@@ -14,6 +14,18 @@
         { "input": "https://twitter.com/elmo/status/2068016008086872413", "expectedOutput": "org.mozilla.firefox" },
         { "input": "https://twitter.com/elmo", "expectedOutput": "org.mozilla.firefox" }
       ]
+    },
+    {
+      "pattern": "evil.com",
+      "matchType": "SUBDOMAIN",
+      "targetPackage": "net.chaosengine.linkrouter.stop",
+      "openMode": "NORMAL",
+      "enabled": true,
+      "isBuiltIn": false,
+      "examples": [
+        { "input": "https://pure.evil.com", "expectedOutput": "STOP" },
+        { "input": "https://evil.com", "expectedOutput": "STOP" }
+      ]
     }
   ],
   "ampCacheUnwrap": [

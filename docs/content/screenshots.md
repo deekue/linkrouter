@@ -5,9 +5,13 @@ title: "Screenshots"
 description: "App screenshots showing rules, redirect formats, query parameter filters, shortener hosts, and settings."
 ---
 
-# Screenshots
-
 A look at the main screens of LinkRouter:
+
+* [Rules](#rules) - route certain sites to certain browsers
+* [Redirect formats](#redirect-formats) - extract the real destination from tracking redirectors
+* [Query parameter filters](#query-parameter-filters) - strip off tracking query parameters
+* [Shortener hosts](#shortener-hosts) - resolve shortened URLs to their final destination before routing
+* [Settings](#settings)
 
 ## Rules
 
