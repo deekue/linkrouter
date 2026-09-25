@@ -2,7 +2,9 @@ package net.chaosengine.linkrouter.settings
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
@@ -56,5 +58,18 @@ class SettingsStoreTest {
 
         assertEquals(FallbackMode.ASK_REMEMBER, second.fallbackMode.value)
         assertEquals("org.example.browser", second.rememberedPackage.value)
+    }
+
+    @Test
+    fun `ampCacheUnwrapEnabled defaults to true and disabling survives a restart`() {
+        // Default ON on a fresh context.
+        val first = SettingsStore(context())
+        assertTrue(first.ampCacheUnwrapEnabled.value)
+
+        first.setAmpCacheUnwrapEnabled(false)
+
+        // Simulate a process restart: fresh instance reads the same prefs file.
+        val second = SettingsStore(context())
+        assertFalse(second.ampCacheUnwrapEnabled.value)
     }
 }

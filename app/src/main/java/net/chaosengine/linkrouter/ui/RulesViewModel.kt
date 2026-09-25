@@ -68,6 +68,7 @@ class RulesViewModel(app: Application) : AndroidViewModel(app) {
     val fallbackBrowser by lazy { settings.fallbackBrowser }
     val rememberedPackage by lazy { settings.rememberedPackage }
     val warnPrivate by lazy { settings.warnPrivate }
+    val ampCacheUnwrapEnabled by lazy { settings.ampCacheUnwrapEnabled }
 
     private val _rows = mutableStateOf<List<RuleRow>>(emptyList())
     val rows: List<RuleRow> get() = _rows.value
@@ -464,6 +465,10 @@ class RulesViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setWarnPrivate(enabled: Boolean) {
         settings.setWarnPrivate(enabled)
+    }
+
+    fun setAmpCacheUnwrapEnabled(enabled: Boolean) {
+        settings.setAmpCacheUnwrapEnabled(enabled)
     }
 
     fun resetPrivateWarnings() {

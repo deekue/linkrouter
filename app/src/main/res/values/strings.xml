@@ -44,6 +44,8 @@
     <string name="routing_toast">You are routing matching links to %1$s</string>
     <string name="work_profile_note">Browsers are discovered per active profile only.</string>
     <string name="private_warn_title">Warn when private mode isn\'t truly supported</string>
+    <string name="amp_unwrap_title">Unwrap AMP cache URLs to the origin site</string>
+    <string name="amp_unwrap_description">When on, LinkRouter treats an AMP cache URL (e.g. cdn.ampproject.org) as its origin site: rules match the origin and it opens the origin URL.</string>
     <string name="rescan_done">Browser list refreshed</string>
     <string name="import_ok">Imported %1$d rules</string>
     <string name="import_failed">Import failed — invalid JSON</string>
