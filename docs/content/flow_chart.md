@@ -16,16 +16,21 @@ graph TD
     C -->|"yes"| D{"Already handled?<br/>(loop guard)"}
     D -->|"yes"| O
     D -->|"no"| E["Load enabled rules,<br/>formats, filters, rewrites"]
-    E --> F{"Enabled shortener host?<br/>(opt-in, off by default)"}
-    F -->|"no"| H
+    E --> E3["Canonicalize AMP cache URLs<br/>(amp.to / ampproject.org → origin)"]
+    E3 --> F{"Enabled shortener host?<br/>(opt-in, off by default)"}
+    F -->|"no"| E2
     F -->|"yes"| G["Resolve shortener to final URL<br/>(pure-JVM; ephemeral WebView fallback)"]
-    G --> H["Match rules<br/>(list-order priority + specificity tie-break)"]
+    G --> E2["Unwrap redirect wrappers<br/>(user formats, e.g. google.com/url)"]
+    E2 --> F2{"Nested shortener host?<br/>(bounded depth)"}
+    F2 -->|"no"| H
+    F2 -->|"yes"| G
+    H["Match rules<br/>(specificity first, list-order tie-break)"]
     H --> I{"Rule matched?"}
-    I -->|"no"| J["Fallback<br/>(chooser / OS default / block / ask-and-remember)"]
+    I -->|"no"| J["Fallback<br/>(chooser / OS default / block / ask-and-remember / specific browser)"]
     J --> N["finish"]
     I -->|"yes"| K["Host rewrite<br/>(first enabled rewrite rule)"]
     K --> L["Strip tracker query params<br/>(final launched URL only)"]
-    L --> M["Launch in target browser<br/>(private / normal / in-app WebView)"]
+    L --> M["Launch in target browser<br/>(private / normal / in-app WebView / Stop)"]
     M --> N
 {{</mermaid>}}
 
